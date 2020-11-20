@@ -79,7 +79,8 @@ class Controller:
         """
         default_data = defaultdict(bool, data)
 
-        print(default_data[FORWARD])
+        if data[FORWARD]:
+            print('FORWARD')
 
         default_data[DISTANCE] = self.states[DISTANCE]
         # self.motor.handle_motor_control(default_data)  

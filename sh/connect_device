@@ -1,0 +1,12 @@
+#!/usr/bin/expect -f
+
+set prompt "#"
+set address [lindex $argv 0]
+
+spawn sudo bluetoothctl
+expect -re $prompt
+send "connect $address\r"
+sleep 3
+send_user "\nShould be paired now.\r"
+send "exit\r"
+expect eof

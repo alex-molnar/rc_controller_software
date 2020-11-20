@@ -1,32 +1,36 @@
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, timeout as SocketConnectionError
 from random import randint
+from time import sleep
+
 from requests import post, get
 from agent_base import AgentBase
+from abc import ABCMeta
+from multiprocessing import Queue
 from utils.constants import SUCCESS, AUTHENTICATION_FAILURE, AGENT_CONNECTED
 
 
-class LAN_Agent(AgentBase):
+class LAN_AgentMeta(ABCMeta):
+    def __str__(self):
+        return 'LAN'
+
+
+class LAN_Agent(AgentBase, metaclass=LAN_AgentMeta):
     """"""
 
     @staticmethod
-    def get_instance(obj):
+    def poll(agent_queue: Queue) -> None:
         try:
             get("https://google.com/", timeout=3)
             lan_agent_instance = LAN_Agent()
-            if lan_agent_instance.sending_socket is not None and lan_agent_instance.receiving_socket is not None:
-                print("Creation of lan_agent was successful")
-                success = obj.set_agent(lan_agent_instance)
-                if success == AUTHENTICATION_FAILURE:
-                    print('Authentication failure')
-                    lan_agent_instance.sending_socket.sendall(b"WRONG PASSWORD\n")
-                    # TODO: handle asking for new password
-                elif success == AGENT_CONNECTED:
-                    print('agent already connected')
-                    lan_agent_instance.close_connection()
+            while lan_agent_instance.sending_socket is None or lan_agent_instance.receiving_socket is  None:
+                lan_agent_instance = LAN_Agent()
+
+            print("Creation of lan_agent was successful")
+            agent_queue.put(lan_agent_instance)
+            sleep(5)  # workaround: exiting this process closes the queue for some reason
         except Exception as e:
             # TODO: handle no internet (bluetooth)
             print(f'Exception happened during get request:\n{e}')
-            raise e
 
     def __init__(self):
         """""" 
@@ -45,7 +49,7 @@ class LAN_Agent(AgentBase):
         post("https://kingbrady.web.elte.hu/rc_car/update.php", params={"ip": self.__get_IP(), "port": local_port})
 
         conn.listen()
-        conn.settimeout(60)
+        conn.setblocking(True)
 
         try:
             self.receiving_socket, _ = conn.accept()
@@ -54,6 +58,9 @@ class LAN_Agent(AgentBase):
             pass
 
         conn.close()
+
+    def __str__(self):
+        return 'LAN'
 
     def __get_IP(self) -> str:
         """
@@ -76,13 +83,16 @@ class LAN_Agent(AgentBase):
         except:
             pass
 
-    def receive_passwd(self) -> str:
-        return self.receiving_socket.recv(1024)
-
-    def send_passwd(self) -> None:
-        print(f'message sending')
-        self.sending_socket.sendall('GRANTED\n'.encode())
-        print(f'message sent')
+    def authenticate(self, password: bytes) -> bool:
+        received_password = self.receiving_socket.recv(1024)
+        if password == received_password:
+            print('...GRANTED')
+            self.sending_socket.sendall('GRANTED\n'.encode())
+            return True
+        else:
+            # Should probably send rejected message to handle wrong password (like 3 times then give back controll)
+            print('...REJECTED')
+            return False
 
     def receive(self) -> str:
         print('receiveing')

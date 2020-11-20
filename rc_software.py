@@ -1,13 +1,18 @@
-from threading import Thread, Lock
+from multiprocessing import Process, Queue
 from json import dumps, loads
+from threading import Thread
+
 from controller import Controller
 from lan_agent import LAN_Agent
+from bluetooth_agent import BluetoothAgent
+from ds4_agent import DS4Agent
 from agent_base import AgentBase
 from hashlib import sha256
-from queue import Queue
 from utils.constants import SUCCESS, AUTHENTICATION_FAILURE, AGENT_CONNECTED
 
+from sys import argv
 from time import sleep
+
 
 class RC_Car:
     """
@@ -29,45 +34,32 @@ class RC_Car:
         :Assumptions:
           * Only one instance of the class is created
         """
-        self.agent = None
-        self.agent_queue = Queue()
-        self.authenticating = False
-        self.is_connection_alive = True
-        password = "69420" #TODO: get passwd from file
+        self.agent: AgentBase = None
+        self.agent_queue: "Queue[AgentBase]" = Queue()
+        self.poll_processes = dict()
+
+        password = "69420"  # TODO: get password from file
         self.password = sha256(password.encode()).digest()
 
-        Thread(target=LAN_Agent.get_instance, args=(self,)).start()
-        print('before get')
-        self.agent_queue.get()
-        print('after get')
+        # self.poll_processes[str(LAN_Agent)] = Process(target=LAN_Agent.poll, args=(self.agent_queue,))
+        self.poll_processes[str(DS4Agent)] = Process(target=DS4Agent.poll, args=(self.agent_queue,))
+        # self.poll_processes[str(LAN_Agent)].start()
+        self.poll_processes[str(DS4Agent)].start()
 
-    def __authenticate(self) -> bool:
-        self.authenticating = True
-        success = AUTHENTICATION_FAILURE
-        if self.agent is not None:
-            data = self.agent.receive_passwd() #receiving_socket.recv(1024)
-            print(f'data: {data} vs\npasswd: {self.password}')
-            if data == self.password:
-                print('  ...GRANTED.')
-                self.agent.send_passwd() #sending_socket.sendall(b"GRANTED\n")
-                print('sent')
+        while not self.agent:
+            print('before get')
+            candidate_agent = self.agent_queue.get()
+            print('after get')
+            if candidate_agent.authenticate(self.password):
+                self.agent = candidate_agent
                 self.controller = Controller()
-                self.agent_queue.put(True)
-                success = SUCCESS
-
-        self.authenticating = False
-        return success
-
-    def set_agent(self, agent: AgentBase) -> bool:
-        """"""
-        if self.agent is None:
-            self.agent = agent
-            return self.__authenticate()
-        elif self.authenticating:
-            sleep(1)
-            return self.set_agent(agent)
-        else:
-            return AGENT_CONNECTED
+                self.is_connection_alive = True
+                for process in self.poll_processes.values():
+                    process.terminate()
+            else:
+                candidate_agent.close_connection()
+                self.poll_processes[str(candidate_agent)] = Process(target=type(candidate_agent).poll, args=(self.agent_queue,))
+                self.poll_processes[str(candidate_agent)].start()
 
     def run(self) -> None:
         """
@@ -92,12 +84,11 @@ class RC_Car:
         :return: None
         """
         while True:
-            data = self.agent.receive() #.receiving_socket.recv(1024).decode()
+            data = self.agent.receive()
             if not data:
                 self.is_connection_alive = False
                 break
             else:
-                print('setting values')
                 self.controller.set_values(loads(data))
 
     def send_updates(self) -> None:
@@ -115,4 +106,7 @@ class RC_Car:
 
 
 if __name__ == '__main__':
-    RC_Car().run()
+    if len(argv) > 1 and argv[1] == '--debug':
+        b = DS4Agent()
+    else:
+        RC_Car().run()

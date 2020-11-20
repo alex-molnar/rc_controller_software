@@ -1,17 +1,21 @@
-from abc import ABC
+from abc import ABC, ABCMeta
+from queue import Queue
 
-class AgentBase(ABC):
+
+class AgentBase(ABC, metaclass=ABCMeta):
+
+    @staticmethod
+    def poll(agent_queue: Queue):
+        raise NotImplementedError
+
+    def authenticate(self, password):
+        raise NotImplementedError
+
     def receive(self) -> str:
-        pass
+        raise NotImplementedError
     
     def send(self, message: str) -> None:
-        pass
-
-    def receive_passwd(self) -> str:
-        pass
-
-    def send_passwd(self) -> None:
-        pass
+        raise NotImplementedError
 
     def close_connection(self):
-        pass
+        raise NotImplementedError

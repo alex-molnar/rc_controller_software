@@ -1,0 +1,3 @@
+sudo /home/alex/rc_controller_software/sh/pair_device $1
+sleep 2
+sudo /home/alex/rc_controller_software/sh/connect_device $1
