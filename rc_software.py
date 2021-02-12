@@ -1,90 +1,81 @@
-from multiprocessing import Process, Queue
 from json import dumps, loads
 from threading import Thread
+from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
+from requests import get, post
+from random import randint
 
 from controller import Controller
-from lan_agent import LAN_Agent
-from bluetooth_agent import BluetoothAgent
-from ds4_agent import DS4Agent
-from agent_base import AgentBase
 from hashlib import sha256
-from utils.constants import SUCCESS, AUTHENTICATION_FAILURE, AGENT_CONNECTED
 
-from sys import argv
 from time import sleep
 
 
-class RC_Car:
-    """
-    The entrypoint of the software for the RC car created like this: TODO: link
-    By default it will listen on an available port in a range 8000, 60000
+class RcCar:
 
-    :examples:
-
-    >>> car = RC_Car()
-    >>> car.run()
-    """
     def __init__(self):
-        """
-        Creates the instance of the RC_Car class. 
-          * Starts to listen, on a free port in range 8000, 60000,
-          * If a connection request received it establishes the connection with the client. 
-          * Creates the instance of the controller class
+        try:
+            get("https://google.com/", timeout=3)
+        except Exception as e:
+            # TODO: handle no internet (bluetooth, red LED)
+            print(f'Exception happened during get request:\n{e}')
 
-        :Assumptions:
-          * Only one instance of the class is created
-        """
-        self.agent: AgentBase = None
-        self.agent_queue: "Queue[AgentBase]" = Queue()
-        self.poll_processes = dict()
+        conn = socket(AF_INET, SOCK_STREAM)
+        listening = False
+
+        while not listening:
+            try:
+                local_port = randint(15000, 60000)
+                receiving_address = ('0.0.0.0', local_port)
+                conn.bind(receiving_address)
+                listening = True
+            except OSError as error:
+                print(f"\r{error}", end='')
+
+        post("https://kingbrady.web.elte.hu/rc_car/update.php", params={"ip": RcCar.__get_ip(), "port": local_port})
+
+        conn.listen()
+        self.receiving_socket, _ = conn.accept()
+        self.sending_socket, _ = conn.accept()
+        conn.close()
 
         password = "69420"  # TODO: get password from file
         self.password = sha256(password.encode()).digest()
 
-        # self.poll_processes[str(LAN_Agent)] = Process(target=LAN_Agent.poll, args=(self.agent_queue,))
-        self.poll_processes[str(DS4Agent)] = Process(target=DS4Agent.poll, args=(self.agent_queue,))
-        # self.poll_processes[str(LAN_Agent)].start()
-        self.poll_processes[str(DS4Agent)].start()
+        received_password = self.receiving_socket.recv(1024)
+        if password == received_password:
+            print('...GRANTED')
+            self.sending_socket.sendall('GRANTED\n'.encode())
+            self.controller = Controller()
+            self.is_connection_alive = True
+        else:
+            print('...REJECTED')
 
-        while not self.agent:
-            print('before get')
-            candidate_agent = self.agent_queue.get()
-            print('after get')
-            if candidate_agent.authenticate(self.password):
-                self.agent = candidate_agent
-                self.controller = Controller()
-                self.is_connection_alive = True
-                for process in self.poll_processes.values():
-                    process.terminate()
-            else:
-                candidate_agent.close_connection()
-                self.poll_processes[str(candidate_agent)] = Process(target=type(candidate_agent).poll, args=(self.agent_queue,))
-                self.poll_processes[str(candidate_agent)].start()
+    @staticmethod
+    def __get_ip() -> str:
+        """
+        Queries the IP address, which the socket is bind to.
+
+        :Assumptions: None
+
+        :return: The IPV4 address, which the socket is bind to
+        """
+        s = socket(AF_INET, SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
 
     def run(self) -> None:
-        """
-          * Starts the thread which sends updates on the state of the controller
-          * Starts the method which is responsible for receiving the commands from the client.
 
-          Note: It blocks until the the client ends connection.
-
-          :return: None
-        """
         update_thread = Thread(target=self.send_updates)
         update_thread.start()
         self.receive_commands()
         update_thread.join()
         
     def receive_commands(self) -> None:
-        """
-        Listens on the receiving socket in an infinite loop.
 
-        :Assumpitons: None
-
-        :return: None
-        """
         while True:
-            data = self.agent.receive()
+            data = self.receiving_socket.recv(1024).decode()
             if not data:
                 self.is_connection_alive = False
                 break
@@ -92,21 +83,13 @@ class RC_Car:
                 self.controller.set_values(loads(data))
 
     def send_updates(self) -> None:
-        """
-        Constantly update the client about the state of the controller
-        
-        :Assumpitons: None
 
-        :return: None
-        """
         while self.is_connection_alive:
             message = dumps(self.controller.get_values()) + '\n'
-            self.agent.send(message)
-            sleep(0.05) # distance sensor
+            self.sending_socket.sendall(message.encode())
+            _ = self.sending_socket.recv(1024)
+            sleep(0.05)  # distance sensor
 
 
 if __name__ == '__main__':
-    if len(argv) > 1 and argv[1] == '--debug':
-        b = DS4Agent()
-    else:
-        RC_Car().run()
+    RcCar().run()
