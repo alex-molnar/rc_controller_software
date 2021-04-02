@@ -3,6 +3,7 @@ from threading import Thread
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM
 from requests import get, post
 from random import randint
+from subprocess import run
 
 from controller import Controller
 
@@ -12,32 +13,39 @@ from time import sleep
 class RcCar:
 
     def __init__(self):
+        self.controller = Controller()
+        self.power_on = True
+
         try:
             get("https://google.com/", timeout=3)
         except Exception as e:
             # TODO: handle no internet (bluetooth, red LED)
             print(f'Exception happened during get request:\n{e}')
 
-        conn = socket(AF_INET, SOCK_STREAM)
+        self.conn = socket(AF_INET, SOCK_STREAM)
         listening = False
 
         while not listening:
             try:
                 local_port = randint(15000, 60000)
                 receiving_address = ('0.0.0.0', local_port)
-                conn.bind(receiving_address)
+                self.conn.bind(receiving_address)
                 listening = True
             except OSError as error:
                 print(f"\r{error}", end='')
 
         # TODO: delete values with some timeout
-        post("https://kingbrady.web.elte.hu/rc_car/update.php", params={"ip": RcCar.__get_ip(), "port": local_port})  # TODO: set timeout like 1 minute to invalidate port
+        post("https://kingbrady.web.elte.hu/rc_car/update.php",
+             params={"ip": RcCar.__get_ip(), "port": local_port, "available": 1})  # TODO: set timeout like 1 minute to invalidate port
         print(f"port: {local_port}")
 
-        conn.listen()
-        self.receiving_socket, _ = conn.accept()
-        self.sending_socket, _ = conn.accept()
-        conn.close()
+        self.conn.listen()
+
+    def __receive_connection(self):
+        print("Accepting Connection...")
+        post("https://kingbrady.web.elte.hu/rc_car/activate.php")
+        self.receiving_socket, _ = self.conn.accept()
+        self.sending_socket, _ = self.conn.accept()
 
         # TODO: better hashing algorithm
         # self.password = pbkdf2_hmac('sha256', b'69420', b'1234', 1000, 64)
@@ -49,8 +57,8 @@ class RcCar:
         if self.password == received_password:
             print('...GRANTED')
             self.sending_socket.sendall('GRANTED\n'.encode())
-            self.controller = Controller()
             self.is_connection_alive = True
+            post("https://kingbrady.web.elte.hu/rc_car/deactivate.php")
         else:
             print('...REJECTED')  # TODO: error handling
 
@@ -82,15 +90,26 @@ class RcCar:
 
     def run(self) -> None:
 
+        while self.power_on:
+            try:
+                self.__receive_connection()
+                update_thread = Thread(target=self.send_updates)
+                update_thread.start()
+                self.receive_commands()
+                update_thread.join()
+            except Exception as e:
+                print(e)
+            finally:
+                self.__close_sockets()
+
+        print("closing main socket before exiting..")
         try:
-            update_thread = Thread(target=self.send_updates)
-            update_thread.start()
-            self.receive_commands()
-            update_thread.join()
-        except Exception as e:
-            print(e)
-        finally:
-            self.__close_sockets()  # TODO: listen to connections again or something
+            self.conn.close()
+        except:
+            pass
+
+# next line turns off the system how it should, however for convenience reasons it is commented out during development
+        # run("sudo poweroff", shell=True)
         
     def receive_commands(self) -> None:
 
@@ -99,6 +118,9 @@ class RcCar:
             if not data:
                 self.is_connection_alive = False
                 break
+            elif data == "POWEROFF":
+                print("POWEROFF request received")
+                self.power_on = False
             else:
                 self.controller.set_values(loads(data))
 
