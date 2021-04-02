@@ -5,7 +5,6 @@ from requests import get, post
 from random import randint
 
 from controller import Controller
-from hashlib import sha256
 
 from time import sleep
 
@@ -31,24 +30,29 @@ class RcCar:
             except OSError as error:
                 print(f"\r{error}", end='')
 
-        post("https://kingbrady.web.elte.hu/rc_car/update.php", params={"ip": RcCar.__get_ip(), "port": local_port})
+        # TODO: delete values with some timeout
+        post("https://kingbrady.web.elte.hu/rc_car/update.php", params={"ip": RcCar.__get_ip(), "port": local_port})  # TODO: set timeout like 1 minute to invalidate port
+        print(f"port: {local_port}")
 
         conn.listen()
         self.receiving_socket, _ = conn.accept()
         self.sending_socket, _ = conn.accept()
         conn.close()
 
-        password = "69420"  # TODO: get password from file
-        self.password = sha256(password.encode()).digest()
+        # TODO: better hashing algorithm
+        # self.password = pbkdf2_hmac('sha256', b'69420', b'1234', 1000, 64)
+        with open('passwd', 'rb') as f:
+            self.password = f.readline()
 
         received_password = self.receiving_socket.recv(1024)
-        if password == received_password:
+        print(f'pwd: {self.password}\nrec: {received_password}')
+        if self.password == received_password:
             print('...GRANTED')
             self.sending_socket.sendall('GRANTED\n'.encode())
             self.controller = Controller()
             self.is_connection_alive = True
         else:
-            print('...REJECTED')
+            print('...REJECTED')  # TODO: error handling
 
     @staticmethod
     def __get_ip() -> str:
@@ -65,12 +69,28 @@ class RcCar:
         s.close()
         return ip
 
+    def __close_sockets(self):
+        try:
+            print("closing connections")
+            self.sending_socket.close()
+        except Exception:
+            pass
+        try:
+            self.receiving_socket.close()
+        except Exception:
+            pass
+
     def run(self) -> None:
 
-        update_thread = Thread(target=self.send_updates)
-        update_thread.start()
-        self.receive_commands()
-        update_thread.join()
+        try:
+            update_thread = Thread(target=self.send_updates)
+            update_thread.start()
+            self.receive_commands()
+            update_thread.join()
+        except Exception as e:
+            print(e)
+        finally:
+            self.__close_sockets()  # TODO: listen to connections again or something
         
     def receive_commands(self) -> None:
 
@@ -87,7 +107,10 @@ class RcCar:
         while self.is_connection_alive:
             message = dumps(self.controller.get_values()) + '\n'
             self.sending_socket.sendall(message.encode())
-            _ = self.sending_socket.recv(1024)
+            try:
+                _ = self.sending_socket.recv(1024)
+            except:
+                pass  # There is a chance the socket closes on the other side before this call gets made
             sleep(0.05)  # distance sensor
 
 

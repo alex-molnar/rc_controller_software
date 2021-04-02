@@ -67,19 +67,3 @@ class Servo:
     def mid(self):
         self._angle = (self._min_duty + self._max_duty) / 2
         self.servo.ChangeDutyCycle(self._angle)
-
-
-# GPIO.setup(25, GPIO.OUT)
-# pwm = GPIO.PWM(25, 50)
-# pwm.start(0)
-# duty = 11#145 / 18 + 2
-# GPIO.output(25, True)
-# pwm.ChangeDutyCycle(duty)
-# sleep(1)
-# #GPIO.output(25, False)
-# #pwm.ChangeDutyCycle(0)
-# pwm.stop()
-# GPIO.cleanup()
-
-if __name__ == "__main__":
-
