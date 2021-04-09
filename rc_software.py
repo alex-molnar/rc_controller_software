@@ -1,15 +1,34 @@
 from json import dumps, loads
-from threading import Thread
-from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
-from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service, BluetoothError
-from requests import get, post
 from random import randint
+from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
 from subprocess import run, check_output
 from sys import maxsize
+from threading import Thread
+from time import sleep
+
+from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
+from requests import get, post
 
 from controller import Controller
 
-from time import sleep
+
+GOOGLE_DOMAIN = 'https://google.com/'
+CAESAR_URL = 'https://kingbrady.web.elte.hu/rc_car/{}.php'
+GOOGLE_PUBLIC_DNS = '8.8.8.8'
+ADDR_ANY = ''
+
+COMMAND_GET_NETWORK_ADDRESS = ['sudo', 'iwgetid']
+COMMAND_TURN_BLUETOOTH_DISCOVERY_ON = 'sh/bt_disc_on'
+COMMAND_POWEROFF = 'sudo poweroff'
+
+NETWORK_TIMEOUT_TOLERANCE = 1
+RECV_MAX_BYTES = 1024
+
+UUID = '94f39d29-7d6d-583a-973b-fba39e49d4ee'
+BT_NAME = 'RC_car_raspberrypi'
+
+PASSWORD_FILE = 'passwd'
+POWEROFF = 'POWEROFF'
 
 
 class RcCar:
@@ -25,88 +44,70 @@ class RcCar:
 
     @staticmethod
     def __get_ip() -> str:
-        """
-        Queries the IP address, which the socket is bind to.
-
-        :Assumptions: None
-
-        :return: The IPV4 address, which the socket is bind to
-        """
         s = socket(AF_INET, SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
+        s.connect((GOOGLE_PUBLIC_DNS, 80))
         ip = s.getsockname()[0]
         s.close()
         return ip
 
     @staticmethod
     def __get_ssid() -> str:
-        return check_output(['sudo', 'iwgetid']).split(b'"')[1].decode()
+        return check_output(COMMAND_GET_NETWORK_ADDRESS).split(b'"')[1].decode()
 
     def __setup_lan_connection(self) -> bool:
         try:
-            get("https://google.com/", timeout=3)
+            get(GOOGLE_DOMAIN, timeout=NETWORK_TIMEOUT_TOLERANCE)
         except Exception as e:
             # TODO: handle no internet (bluetooth, red LED)
             print(f'Exception happened during get request:\n{e}')
             return False
 
         self.lan_socket = socket(AF_INET, SOCK_STREAM)
-        listening = False
+        self.lan_socket.bind((ADDR_ANY, PORT_ANY))
+        # although PORT_ANY is imported from bluetooth lib, its value is 0, and have the same symbolic meaning in both
+        # bluetooth, and python socket libraries. Since such constant is not provided by the socket library it is
+        # reasonable to use it here as well
 
-        while not listening:
-            try:
-                local_port = randint(15000, 60000)
-                receiving_address = ('0.0.0.0', local_port)
-                self.lan_socket.bind(receiving_address)
-                listening = True
-            except OSError as error:
-                print(f"\r{error}", end='')
-
-        post(
-            "https://kingbrady.web.elte.hu/rc_car/update.php",
-            params={
-                "id": self.db_id,
-                "ip": RcCar.__get_ip(),
-                "port": local_port,
-                "ssid": RcCar.__get_ssid(),
-                "available": 1
-            }
-        )  # TODO: set timeout like 1 minute to invalidate port
-        print(f"LAN port: {local_port}, ssid: {RcCar.__get_ssid()}")
+        post(CAESAR_URL.format('update'), params={
+            'id': self.db_id,
+            'ip': RcCar.__get_ip(),
+            'port': self.lan_socket.getsockname()[1],
+            'ssid': RcCar.__get_ssid(),
+            'available': 1
+        })
+        print(f'LAN port: {self.lan_socket.getsockname()[1]}, ssid: {RcCar.__get_ssid()}, ip: {self.lan_socket.getsockname()[0]}')
 
         self.lan_socket.listen()
         self.lan_socket.settimeout(1)
         return True
 
     def __setup_bt_connection(self) -> bool:
-        run('sh/bt_disc_on', shell=True)
+        run(COMMAND_TURN_BLUETOOTH_DISCOVERY_ON, shell=True)
         self.bt_socket = BluetoothSocket(RFCOMM)
-        self.bt_socket.bind(("", PORT_ANY))
+        self.bt_socket.bind((ADDR_ANY, PORT_ANY))
         self.bt_socket.settimeout(1)
         self.bt_socket.listen(maxsize)
 
         port = self.bt_socket.getsockname()[1]
 
-        uuid = "94f39d29-7d6d-583a-973b-fba39e49d4ee"
-
         advertise_service(
             self.bt_socket,
-            "RC_car_raspberrypi",
-            service_id=uuid,
-            service_classes=[uuid, SERIAL_PORT_CLASS],
+            BT_NAME,
+            service_id=UUID,
+            service_classes=[UUID, SERIAL_PORT_CLASS],
             profiles=[SERIAL_PORT_PROFILE]
         )
-        print(f"BT port: {port}, uuid: {uuid}")
+        print(f'BT port: {port}, uuid: {UUID}')
         return True
 
     def __receive_connection(self, server_socket) -> None:
         connection_made = False
         timestamp_timer = 0
-        print(f"Accepting {'LAN' if server_socket.getsockname()[0] == '0.0.0.0' else 'BT'} Connection...")
+        print(f'Accepting {"LAN" if server_socket.getsockname()[0] == "0.0.0.0" else "BT"} Connection...')
         while not self.is_connection_alive:
             if timestamp_timer > 30 and server_socket.getsockname()[0] == '0.0.0.0':
                 timestamp_timer = 0
-                post("https://kingbrady.web.elte.hu/rc_car/activate.php", params={"id": self.db_id})
+                post(CAESAR_URL.format('activate'), params={'id': self.db_id})
             try:
                 self.message_socket, _ = server_socket.accept()
                 connection_made = True
@@ -115,15 +116,15 @@ class RcCar:
                 timestamp_timer += 1
 
         if not connection_made:
-            print(f"returning, since {'LAN' if server_socket.getsockname()[0] != '0.0.0.0' else 'BT'} connected..")
+            print(f'returning, since {"LAN" if server_socket.getsockname()[0] != "0.0.0.0" else "BT"} connected..')
             return
 
         # TODO: better hashing algorithm
         # self.password = pbkdf2_hmac('sha256', b'69420', b'1234', 1000, 64)
-        with open('passwd', 'rb') as f:
+        with open(PASSWORD_FILE, 'rb') as f:
             self.password = f.readline()
 
-        received_password = self.message_socket.recv(1024)
+        received_password = self.message_socket.recv(RECV_MAX_BYTES)
         print(f'pwd: {self.password}\nrec: {received_password}')
         if self.password == received_password:
             print('...GRANTED')
@@ -134,7 +135,7 @@ class RcCar:
 
     def __close_sockets(self):
         try:
-            print("closing connections")
+            print('closing connections')
             self.message_socket.close()
         except Exception:
             pass
@@ -142,7 +143,7 @@ class RcCar:
     def run(self) -> None:
 
         while self.power_on:
-            post("https://kingbrady.web.elte.hu/rc_car/activate.php", params={"id": self.db_id})
+            post(CAESAR_URL.format('activate'), params={'id': self.db_id})
             try:
                 lan_thread = None
                 bt_thread = None
@@ -159,7 +160,7 @@ class RcCar:
                     lan_thread.join()
                 if bt_thread:
                     bt_thread.join()
-                post("https://kingbrady.web.elte.hu/rc_car/deactivate.php", params={"id": self.db_id})
+                post(CAESAR_URL.format('deactivate'), params={'id': self.db_id})
 
                 update_thread = Thread(target=self.send_updates)
                 update_thread.start()
@@ -171,14 +172,14 @@ class RcCar:
             finally:
                 self.__close_sockets()
 
-        print("closing main socket before exiting..")
+        print('closing main socket before exiting..')
         try:
             self.lan_socket.close()
         except:
             pass
 
 # next line turns off the system how it should, however for convenience reasons it is commented out during development
-        # run("sudo poweroff", shell=True)
+        # run(COMMAND_POWEROFF, shell=True)
         
     def receive_commands(self) -> None:
 
@@ -187,8 +188,8 @@ class RcCar:
             if not data:
                 self.is_connection_alive = False
                 break
-            elif data == "POWEROFF":
-                print("POWEROFF request received")
+            elif data == POWEROFF:
+                print('POWEROFF request received')
                 self.power_on = False
             else:
                 self.controller.set_values(loads(data))
