@@ -3,8 +3,8 @@ include("passwd.php");
 
 $id = $_GET["id"];
 
-$sql = "UPDATE rc_connection SET available=0 WHERE id=:id";
-$params = ["id" => $id];
+$sql = "UPDATE rc_connection SET available=0, time_stamp=:time_stamp WHERE id=:id";
+$params = ["id" => $id, "time_stamp" => date("Y-m-d H:i:s")];
 
 $pdo = new PDO("mysql:host=mysql.caesar.elte.hu;dbname=kingbrady", "kingbrady", get_password());
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);

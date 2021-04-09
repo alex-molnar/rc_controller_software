@@ -87,7 +87,7 @@ class RcCar:
 
         port = self.bt_socket.getsockname()[1]
 
-        uuid = "94f39d29-7d6d-437d-973b-fba39e49d4ee"
+        uuid = "94f39d29-7d6d-583a-973b-fba39e49d4ee"
 
         advertise_service(
             self.bt_socket,
@@ -101,14 +101,18 @@ class RcCar:
 
     def __receive_connection(self, server_socket) -> None:
         connection_made = False
+        timestamp_timer = 0
         print(f"Accepting {'LAN' if server_socket.getsockname()[0] == '0.0.0.0' else 'BT'} Connection...")
         while not self.is_connection_alive:
+            if timestamp_timer > 30 and server_socket.getsockname()[0] == '0.0.0.0':
+                timestamp_timer = 0
+                post("https://kingbrady.web.elte.hu/rc_car/activate.php", params={"id": self.db_id})
             try:
                 self.message_socket, _ = server_socket.accept()
                 connection_made = True
                 self.is_connection_alive = True
             except socket_error:
-                pass
+                timestamp_timer += 1
 
         if not connection_made:
             print(f"returning, since {'LAN' if server_socket.getsockname()[0] != '0.0.0.0' else 'BT'} connected..")
