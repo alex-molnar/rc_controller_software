@@ -5,6 +5,7 @@ from subprocess import run, check_output
 from sys import maxsize
 from threading import Thread
 from time import sleep
+from json import load
 
 from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
 from requests import get, post
@@ -18,7 +19,7 @@ GOOGLE_PUBLIC_DNS = '8.8.8.8'
 ADDR_ANY = ''
 
 COMMAND_GET_NETWORK_ADDRESS = ['sudo', 'iwgetid']
-COMMAND_TURN_BLUETOOTH_DISCOVERY_ON = 'sh/bt_disc_on'
+COMMAND_TURN_BLUETOOTH_DISCOVERY_ON = 'sh/bt_disc_on.sh >/dev/null 2>&1'
 COMMAND_POWEROFF = 'sudo poweroff'
 
 NETWORK_TIMEOUT_TOLERANCE = 1
@@ -27,7 +28,7 @@ RECV_MAX_BYTES = 1024
 UUID = '94f39d29-7d6d-583a-973b-fba39e49d4ee'
 BT_NAME = 'RC_car_raspberrypi'
 
-PASSWORD_FILE = 'passwd'
+CONFIG_FILE = 'config.json'
 POWEROFF = 'POWEROFF'
 
 
@@ -37,7 +38,12 @@ class RcCar:
         self.controller = Controller()
         self.power_on = True
         self.is_connection_alive = False
-        self.db_id = 1  # TODO: from file (file created during init)
+
+        with open(CONFIG_FILE, 'r') as f:
+            config = load(f)
+            self.password = config['passwd']
+            self.db_id = config['id']
+            self.db_name = config['device_name']
 
         self.is_lan_active = self.__setup_lan_connection()
         self.is_bt_active = self.__setup_bt_connection()
@@ -70,6 +76,7 @@ class RcCar:
 
         post(CAESAR_URL.format('update'), params={
             'id': self.db_id,
+            'name': self.db_name,
             'ip': RcCar.__get_ip(),
             'port': self.lan_socket.getsockname()[1],
             'ssid': RcCar.__get_ssid(),
@@ -119,12 +126,7 @@ class RcCar:
             print(f'returning, since {"LAN" if server_socket.getsockname()[0] != "0.0.0.0" else "BT"} connected..')
             return
 
-        # TODO: better hashing algorithm
-        # self.password = pbkdf2_hmac('sha256', b'69420', b'1234', 1000, 64)
-        with open(PASSWORD_FILE, 'rb') as f:
-            self.password = f.readline()
-
-        received_password = self.message_socket.recv(RECV_MAX_BYTES)
+        received_password = self.message_socket.recv(RECV_MAX_BYTES).decode()
         print(f'pwd: {self.password}\nrec: {received_password}')
         if self.password == received_password:
             print('...GRANTED')
