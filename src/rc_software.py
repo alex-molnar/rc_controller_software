@@ -6,12 +6,14 @@ from sys import maxsize
 from threading import Thread
 from time import sleep
 from json import load
+from os import chdir
 
 from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
 from requests import get, post
 
 from controller import Controller
 
+RUN_DIRECTORY = '/home/alex/rc_controller_software/src'
 
 GOOGLE_DOMAIN = 'https://google.com/'
 CAESAR_URL = 'https://kingbrady.web.elte.hu/rc_car/{}.php'
@@ -35,7 +37,8 @@ POWEROFF = 'POWEROFF'
 class RcCar:
 
     def __init__(self):
-        self.controller = Controller()
+        chdir(RUN_DIRECTORY)
+        self.controllers = Controller()
         self.power_on = True
         self.is_connection_alive = False
 
@@ -182,7 +185,7 @@ class RcCar:
 
 # next line turns off the system how it should, however for convenience reasons it is commented out during development
         # run(COMMAND_POWEROFF, shell=True)
-        
+
     def receive_commands(self) -> None:
 
         while True:
@@ -194,12 +197,12 @@ class RcCar:
                 print('POWEROFF request received')
                 self.power_on = False
             else:
-                self.controller.set_values(loads(data))
+                self.controllers.set_values(loads(data))
 
     def send_updates(self) -> None:
 
         while self.is_connection_alive:
-            message = dumps(self.controller.get_values()) + '\n'
+            message = dumps(self.controllers.get_values()) + '\n'
             self.message_socket.sendall(message.encode())
             sleep(0.05)  # distance sensor
 

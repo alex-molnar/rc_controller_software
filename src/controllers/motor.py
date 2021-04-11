@@ -2,25 +2,45 @@ from gpiozero import Motor as Wheel
 from threading import Thread
 from time import sleep
 from collections import defaultdict
-from utils.constants import * 
 
 # TODO: refactor contained + distance keeping
 
+FORWARD = 'forward'
+BACKWARD = 'backward'
+LEFT = 'turn_left'
+RIGHT = 'turn_right'
+
+REVERSE = 'reverse'
+
+KEEP_CONTAINED = 'keep_contained'
+CHANGE_DIRECTION = 'change_direction'
+DISTANCE_KEEPING = 'distance_keeping'
+LINE_FOLLOWING = 'line_following'
+
+STOP = 0
+ACCELERATING = 1
+SPEEDING = 2
+BREAKING = -1
+DISTANCE_STATE = 3
+LINE_STATE = 4
+CONTAIN_STATE = 5
+
+
 class Motor:
 
-    MAX_SPEED           = 1  # TODO: settings
-    CONTAIN_SPEED       = 0.3
-    TURN_FORWARD_SPEED  = 0.5
+    MAX_SPEED = 1  # TODO: settings
+    CONTAIN_SPEED = 0.3
+    TURN_FORWARD_SPEED = 0.5
     TURN_BACKWARD_SPEED = 0.3
-    MAX_DISTANCE        = 20
-    TURN_DIRECTION      = RIGHT
+    MAX_DISTANCE = 20
+    TURN_DIRECTION = RIGHT
 
     def __init__(self, right_wheel_pins, left_wheel_pins):
         self.right_wheel = Wheel(*right_wheel_pins)
         self.left_wheel = Wheel(*left_wheel_pins)
 
         self.state = STOP
-        self.direcion = FORWARD
+        self.direction = FORWARD
 
         self.current_speed = 0
 
@@ -76,7 +96,7 @@ class Motor:
         self.state = DISTANCE_STATE
         self.states[REVERSE] = False
         right_turn = self.TURN_DIRECTION == RIGHT
-        
+
         if self.distance < self.MAX_DISTANCE:
             self.distance_state = STOP
             if right_turn:
@@ -116,7 +136,7 @@ class Motor:
                 self.right_wheel.stop()
                 self.left_wheel.stop()
                 self.states[self.TURN_DIRECTION] = False
-                
+
                 sleep(0.5)
 
                 self.distance_state = ACCELERATING
@@ -144,7 +164,7 @@ class Motor:
         self.state = CONTAIN_STATE
         self.states[REVERSE] = False
         right_turn = self.TURN_DIRECTION == RIGHT
-        
+
         if self.line_detected:
             self.contain_state = STOP
             if right_turn:
@@ -187,7 +207,7 @@ class Motor:
                 self.right_wheel.stop()
                 self.left_wheel.stop()
                 self.states[self.TURN_DIRECTION] = False
-                
+
                 sleep(0.5)
 
                 self.contain_state = ACCELERATING
@@ -204,7 +224,7 @@ class Motor:
         self.current_speed = 0
 
     def __handle_speed(self, data):
-        if self.direcion == FORWARD:
+        if self.direction == FORWARD:
             self.states[REVERSE] = data[REVERSE]
 
             if self.state == STOP or (self.state in [DISTANCE_STATE, LINE_STATE] and data[FORWARD]):
@@ -241,14 +261,14 @@ class Motor:
 
     def __handle_directions(self, data):
         if self.state in [STOP, DISTANCE_STATE, LINE_STATE]:
-            if self.direcion == FORWARD:
+            if self.direction == FORWARD:
                 if data[RIGHT]:
                     self.states[RIGHT] = True
                     self.__turn(right=True)
                 elif data[LEFT]:
                     self.states[LEFT] = True
                     self.__turn(right=False)
-            elif self.direcion == RIGHT:
+            elif self.direction == RIGHT:
                 if not data[RIGHT]:
                     self.states[RIGHT] = False
                     if data[LEFT]:
@@ -256,7 +276,7 @@ class Motor:
                         self.__turn(right=False)
                     else:
                         self.__stop()
-            elif self.direcion == LEFT:
+            elif self.direction == LEFT:
                 if not data[LEFT]:
                     self.states[LEFT] = False
                     if data[RIGHT]:
@@ -301,7 +321,7 @@ class Motor:
             self.state = STOP
 
     def __turn(self, right):
-        self.direcion = RIGHT if right else LEFT
+        self.direction = RIGHT if right else LEFT
         if right:
             self.left_wheel.forward(self.TURN_FORWARD_SPEED)
             self.right_wheel.backward(self.TURN_BACKWARD_SPEED)
@@ -311,7 +331,7 @@ class Motor:
 
     def __stop(self):
         self.state = STOP
-        self.direcion = FORWARD
+        self.direction = FORWARD
         self.left_wheel.stop()
         self.right_wheel.stop()
         self.current_speed = 0

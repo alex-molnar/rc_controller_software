@@ -93,7 +93,7 @@ class LED(GeneralPurposeOutputDevice):
         assert 0 < fade_in_time
         assert 0 < fade_out_time
 
-        self._is_active_background = True  
+        self._is_active_background = True
 
         if non_blocking:
             Thread(target=self.blink, args=(times, on_time, off_time, fade_in_time, fade_out_time)).start()
@@ -106,14 +106,14 @@ class LED(GeneralPurposeOutputDevice):
                 for _ in range(0, upper_bound):
                     if not self._is_active_background:
                         break
-                    
+
                     new_value = self.value + 0.01
                     if new_value > 1:
                         new_value = 1
 
                     self._value = new_value
                     self._device.ChangeDutyCycle(self._value * 100)
-                    
+
                     sleep(fade_in_time/upper_bound)
 
                 self._active_sleep(on_time)
@@ -121,7 +121,7 @@ class LED(GeneralPurposeOutputDevice):
                 for _ in range(upper_bound, 0, -1):
                     if not self._is_active_background:
                         break
-                    
+
                     new_value = self.value - 0.01
                     if new_value < 0:
                         new_value = 0

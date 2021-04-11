@@ -1,6 +1,16 @@
-from utils.output_devices import LED
+from controllers.gpio.output_devices import LED
 from collections import defaultdict
-from utils.constants import *
+
+R_INDICATOR = 'right_indicator'
+L_INDICATOR = 'left_indicator'
+HAZARD_WARNING = 'hazard_warning'
+LIGHTS = 'lights'
+
+LIGHTS_OFF  = 0
+LIGHTS_ON   = 1
+HAZARD_ON   = 2
+RIGHT_ON    = 3
+LEFT_ON     = 4
 
 
 class Lights:

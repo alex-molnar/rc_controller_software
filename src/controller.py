@@ -1,10 +1,15 @@
 from gpiozero import LineSensor, DistanceSensor
-from utils.output_devices import Buzzer
-from lighting import Lights
-from motor import Motor
+from controllers.gpio.output_devices import Buzzer
+from controllers.lighting import Lights
+from controllers.motor import Motor
 from collections import defaultdict
 from typing import Optional
-from utils.constants import * 
+
+
+HORN = 'horn'
+DISTANCE = 'distance'
+SPEED = 'speed'
+LINE = 'line'
 
 
 class Controller:
@@ -20,7 +25,7 @@ class Controller:
 
     def __init__(self, pin_numbering=None):
         """
-        Initialises the GPIO components, and other controll components
+        Initialises the GPIO components, and other control components
 
         :Assumptions: None
 
@@ -30,12 +35,14 @@ class Controller:
         # self.lights = Lights([18,22], [20, 21, 26], 23, 27)
         # self.distance_sensor = DistanceSensor(echo=4, trigger=3)
         # self.line_sensor = LineSensor(24)
-        # self.motor = Motor([7, 8], [9, 10]) 
+        # self.motor = Motor([7, 8], [9, 10])
 
         # self.line_sensor.when_line = lambda: self.__set_line(True)
         # self.line_sensor.when_no_line = lambda: self.__set_line(False)
 
         self.states = defaultdict(bool)
+        self.states[SPEED] = 69
+        self.states[DISTANCE] = 420
 
     def __honk(self, horn_pushed: bool) -> None:
         """
@@ -80,9 +87,12 @@ class Controller:
         default_data = defaultdict(bool, data)
 
         print(default_data)
-
-        default_data[DISTANCE] = self.states[DISTANCE]
-        # self.motor.handle_motor_control(default_data)  
+        for key, value in default_data.items():
+            self.states[key] = value
+        self.states[SPEED] = 69
+        self.states[DISTANCE] = 420
+        # default_data[DISTANCE] = self.states[DISTANCE]
+        # self.motor.handle_motor_control(default_data)
         # default_data[BACKWARD] = self.motor.states[BACKWARD]
         # self.lights.handle_lights(default_data)
         # self.__honk(default_data[HORN])
@@ -96,7 +106,7 @@ class Controller:
         :return: state as key-value pairs
         """
         # for key, value in self.motor.get_data():
-        #     self.states[key] = value 
+        #     self.states[key] = value
         # for key, value in self.lights.get_data():
         #     self.states[key] = value
 
