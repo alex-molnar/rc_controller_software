@@ -1,14 +1,12 @@
-from RPi.GPIO import PWM, OUT, setup
 from time import sleep
 from threading import Thread
 from atexit import register
-# TODO: why is GPIO included twice?
-import RPi.GPIO as GPIO
 
-GPIO.setmode(GPIO.BCM)
+from RPi.GPIO import PWM, OUT, BCM, setup as gpio_setup, setmode as set_gpio_mode, cleanup
 
-# TODO: gpiozero is included at the moment, which calls GPIO.cleanup, but when it will be removed, the next line should
-# be uncommented
+set_gpio_mode(BCM)
+
+# TODO: gpiozero is included at the moment, which calls GPIO.cleanup, but when it will be removed, the next line should be uncommented
 # register(GPIO.cleanup)
 
 
@@ -17,7 +15,7 @@ class GeneralPurposeOutputDevice:
     def __init__(self, pin: int, starting_value: float = 0, max_value: float = 1):
         assert 0.1 <= max_value <= 1
         assert 0 <= starting_value <= max_value
-        setup(pin, OUT)
+        gpio_setup(pin, OUT)
         self._value = starting_value
         self._device = PWM(pin, 50)
         self._device.start(self._value * 100)

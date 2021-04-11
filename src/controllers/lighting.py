@@ -1,5 +1,6 @@
-from controllers.gpio.output_devices import LED
 from collections import defaultdict
+
+from controllers.gpio.output_devices import LED
 
 R_INDICATOR = 'right_indicator'
 L_INDICATOR = 'left_indicator'

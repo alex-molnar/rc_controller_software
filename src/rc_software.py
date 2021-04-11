@@ -1,17 +1,17 @@
-from json import dumps, loads
-from random import randint
-from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
-from subprocess import run, check_output
 from sys import maxsize
-from threading import Thread
-from time import sleep
-from json import load
 from os import chdir
 
-from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
+from json import dumps, loads, load
+from subprocess import run, check_output
+from time import sleep
+from threading import Thread
 from requests import get, post
 
+from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
+from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
+
 from controller import Controller
+
 
 RUN_DIRECTORY = '/home/alex/rc_controller_software/src'
 

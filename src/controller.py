@@ -1,10 +1,10 @@
+from collections import defaultdict
+from typing import Optional
+
 from gpiozero import LineSensor, DistanceSensor
 from controllers.gpio.output_devices import Buzzer
 from controllers.lighting import Lights
 from controllers.motor import Motor
-from collections import defaultdict
-from typing import Optional
-
 
 HORN = 'horn'
 DISTANCE = 'distance'
