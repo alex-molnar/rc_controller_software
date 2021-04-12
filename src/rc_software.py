@@ -1,11 +1,12 @@
 from sys import maxsize
 from os import chdir
 
-from json import dumps, loads, load
+from json import dumps, loads, load, dump
 from subprocess import run, check_output
 from time import sleep
 from threading import Thread
 from requests import get, post
+from collections import defaultdict
 
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
 from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
@@ -32,6 +33,8 @@ BT_NAME = 'RC_car_raspberrypi'
 
 CONFIG_FILE = 'config.json'
 POWEROFF = 'POWEROFF'
+DEFAULT = 'default'
+MODIFY_REQUEST = 'modify'
 
 
 class RcCar:
@@ -62,6 +65,31 @@ class RcCar:
     @staticmethod
     def __get_ssid() -> str:
         return check_output(COMMAND_GET_NETWORK_ADDRESS).split(b'"')[1].decode()
+
+    def __modify_config(self, data) -> None:
+        default_data = defaultdict(lambda: DEFAULT, data)
+        if default_data['name'] == DEFAULT:
+            default_data['name'] = self.db_name
+        if default_data['new_password'] == DEFAULT:
+            default_data['new_password'] = self.password
+
+        config = {
+            'id': self.db_id,
+            'passwd': default_data['new_password'],
+            'device_name': default_data['name'],
+        }
+
+        if default_data['old_password'] == self.password:
+            print('data wrote')
+            message = dumps({MODIFY_REQUEST: True}) + '\n'
+            with open('config.json', 'w') as f:
+                dump(config, f)
+        else:
+            print('REJECTED')
+            print(default_data)
+            message = dumps({MODIFY_REQUEST: False}) + '\n'
+
+        self.message_socket.sendall(message.encode())
 
     def __setup_lan_connection(self) -> bool:
         try:
@@ -197,7 +225,11 @@ class RcCar:
                 print('POWEROFF request received')
                 self.power_on = False
             else:
-                self.controllers.set_values(loads(data))
+                loaded_data = loads(data)
+                if MODIFY_REQUEST in loaded_data.keys():
+                    self.__modify_config(loaded_data)
+                else:
+                    self.controllers.set_values(loaded_data)
 
     def send_updates(self) -> None:
 
