@@ -35,6 +35,9 @@ CONFIG_FILE = 'config.json'
 POWEROFF = 'POWEROFF'
 DEFAULT = 'default'
 MODIFY_REQUEST = 'modify'
+GRANTED = 'granted'
+REJECTED = 'rejected'
+FINAL_REJECTION = 'final_rejection'
 
 
 class RcCar:
@@ -157,21 +160,25 @@ class RcCar:
             print(f'returning, since {"LAN" if server_socket.getsockname()[0] != "0.0.0.0" else "BT"} connected..')
             return
 
+        tries = 1
         received_password = self.message_socket.recv(RECV_MAX_BYTES).decode()
-        print(f'pwd: {self.password}\nrec: {received_password}')
-        if self.password == received_password:
-            print('...GRANTED')
-            self.message_socket.sendall('GRANTED\n'.encode())
-            self.is_connection_alive = True
-        else:
-            print('...REJECTED')  # TODO: error handling
+        while received_password != self.password and tries < 3:
+            print(REJECTED)
+            self.message_socket.sendall(f'{REJECTED}\n'.encode())
+            tries += 1
+            received_password = self.message_socket.recv(RECV_MAX_BYTES).decode()
 
-    def __close_sockets(self):
-        try:
-            print('closing connections')
-            self.message_socket.close()
-        except Exception:
-            pass
+        if self.password == received_password:
+            print(GRANTED)
+            self.message_socket.sendall(f'{GRANTED}\n'.encode())
+        else:
+            self.message_socket.sendall(f'{FINAL_REJECTION}\n'.encode())
+            self.is_connection_alive = False
+            sleep(0.5)
+            try:
+                self.message_socket.close()
+            except:
+                pass
 
     def run(self) -> None:
 
@@ -193,17 +200,23 @@ class RcCar:
                     lan_thread.join()
                 if bt_thread:
                     bt_thread.join()
-                post(CAESAR_URL.format('deactivate'), params={'id': self.db_id})
 
-                update_thread = Thread(target=self.send_updates)
-                update_thread.start()
-                self.receive_commands()
-                update_thread.join()
+                if self.is_connection_alive:
+                    post(CAESAR_URL.format('deactivate'), params={'id': self.db_id})
+
+                    update_thread = Thread(target=self.send_updates)
+                    update_thread.start()
+                    self.receive_commands()
+                    update_thread.join()
             except Exception as e:
                 print(e)
                 self.is_connection_alive = False
             finally:
-                self.__close_sockets()
+                try:
+                    print('closing connections')
+                    self.message_socket.close()
+                except:
+                    pass
 
         print('closing main socket before exiting..')
         try:
