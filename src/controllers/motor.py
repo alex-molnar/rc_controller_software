@@ -29,7 +29,7 @@ CONTAIN_STATE = 5
 
 class Motor:
 
-    MAX_SPEED = 1  # TODO: settings
+    MAX_SPEED = 1
     CONTAIN_SPEED = 0.3
     TURN_FORWARD_SPEED = 0.5
     TURN_BACKWARD_SPEED = 0.3
@@ -86,9 +86,6 @@ class Motor:
         else:
             self.__handle_speed(data)
             self.__handle_directions(data)
-
-        if data[CHANGE_DIRECTION]:
-            self.TURN_DIRECTION = RIGHT if self.TURN_DIRECTION == LEFT else LEFT
 
     def get_data(self):
         return self.states.items()
