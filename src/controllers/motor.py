@@ -12,6 +12,7 @@ LEFT = 'turn_left'
 RIGHT = 'turn_right'
 
 REVERSE = 'reverse'
+LINE = 'line'
 
 KEEP_CONTAINED = 'keep_contained'
 CHANGE_DIRECTION = 'change_direction'
@@ -59,6 +60,10 @@ class Motor:
         self.contain_state = STOP
 
         self.states = defaultdict(bool)
+
+    def set_line(self, detected):
+        self.line_detected = detected
+        self.states[LINE] = detected
 
     def handle_motor_control(self, data):
         if data[DISTANCE_KEEPING]:

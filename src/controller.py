@@ -9,7 +9,6 @@ from controllers.motor import Motor
 HORN = 'horn'
 DISTANCE = 'distance'
 SPEED = 'speed'
-LINE = 'line'
 
 
 class Controller:
@@ -37,8 +36,8 @@ class Controller:
         self.line_sensor = LineSensor(21)
         self.motor = Motor([7, 8], [9, 10])
 
-        self.line_sensor.when_line = lambda: self.__set_line(True)
-        self.line_sensor.when_no_line = lambda: self.__set_line(False)
+        self.line_sensor.when_line = lambda: self.motor.set_line(True)
+        self.line_sensor.when_no_line = lambda: self.motor.set_line(False)
 
         self.states = defaultdict(bool)
 
@@ -56,19 +55,6 @@ class Controller:
             self.buzzer.on()
         elif not horn_pushed and self.buzzer.is_active:
             self.buzzer.off()
-
-    def __set_line(self, line_detected: bool) -> None:
-        """
-        Sets the state of the line detector accordingly
-
-        :Assumptions: None
-
-        :param line_detected: True if line was detected, False, if no line is detected
-
-        :return: None
-        """
-        self.states[LINE] = line_detected
-        self.motor.line_detected = line_detected
 
     def set_values(self, data: dict):
         """
