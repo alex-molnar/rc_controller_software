@@ -3,6 +3,7 @@ from time import sleep
 from collections import defaultdict
 
 from gpiozero import Motor as Wheel
+from controllers.gpio.output_devices import Servo
 
 # TODO: refactor contained + distance keeping
 
@@ -40,11 +41,13 @@ class Motor:
     def __init__(self, right_wheel_pins, left_wheel_pins):
         self.right_wheel = Wheel(*right_wheel_pins)
         self.left_wheel = Wheel(*left_wheel_pins)
+        self.servo = Servo(6)
 
         self.state = STOP
         self.direction = FORWARD
 
         self.current_speed = 0
+        self.servo.forward()
 
         self.can_accelerate = True
         self.can_break = True
@@ -227,66 +230,55 @@ class Motor:
         self.current_speed = 0
 
     def __handle_speed(self, data):
-        if self.direction == FORWARD:
-            self.states[REVERSE] = data[REVERSE]
+        self.states[REVERSE] = data[REVERSE]
 
-            if self.state == STOP or (self.state in [DISTANCE_STATE, LINE_STATE] and data[FORWARD]):
-                if data[BACKWARD]:
-                    self.states[BACKWARD] = True
-                elif data[FORWARD]:
-                    self.states[FORWARD] = True
-                    self.states[BACKWARD] = False
-                    self.can_accelerate = True
-                    Thread(target=self.__acc).start()
-                else:
-                    self.states[BACKWARD] = False
-            elif self.state in [ACCELERATING, DISTANCE_STATE, LINE_STATE]:
-                if data[BACKWARD]:
-                    self.states[FORWARD] = False
-                    self.states[BACKWARD] = True
-                    self.can_accelerate = False
-                    self.__stop()
-                elif not data[FORWARD]:
-                    self.states[FORWARD] = False
-                    self.can_accelerate = False
-                    self.can_break = True
-                    Thread(target=self.__break).start()
-            elif self.state == BREAKING:
-                if data[BACKWARD]:
-                    self.states[BACKWARD] = True
-                    self.can_break = False
-                    self.__stop()
-                elif data[FORWARD]:
-                    self.states[FORWARD] = True
-                    self.can_break = False
-                    self.can_accelerate = True
-                    Thread(target=self.__acc).start()
+        if self.state == STOP or (self.state in [DISTANCE_STATE, LINE_STATE] and data[FORWARD]):
+            if data[BACKWARD]:
+                self.states[BACKWARD] = True
+            elif data[FORWARD]:
+                self.states[FORWARD] = True
+                self.states[BACKWARD] = False
+                self.can_accelerate = True
+                Thread(target=self.__acc).start()
+            else:
+                self.states[BACKWARD] = False
+        elif self.state in [ACCELERATING, DISTANCE_STATE, LINE_STATE]:
+            if data[BACKWARD]:
+                self.states[FORWARD] = False
+                self.states[BACKWARD] = True
+                self.can_accelerate = False
+                self.__stop()
+            elif not data[FORWARD]:
+                self.states[FORWARD] = False
+                self.can_accelerate = False
+                self.can_break = True
+                Thread(target=self.__break).start()
+        elif self.state == BREAKING:
+            if data[BACKWARD]:
+                self.states[BACKWARD] = True
+                self.can_break = False
+                self.__stop()
+            elif data[FORWARD]:
+                self.states[FORWARD] = True
+                self.can_break = False
+                self.can_accelerate = True
+                Thread(target=self.__acc).start()
 
     def __handle_directions(self, data):
-        if self.state in [STOP, DISTANCE_STATE, LINE_STATE]:
-            if self.direction == FORWARD:
-                if data[RIGHT]:
-                    self.states[RIGHT] = True
-                    self.__turn(right=True)
-                elif data[LEFT]:
-                    self.states[LEFT] = True
-                    self.__turn(right=False)
-            elif self.direction == RIGHT:
-                if not data[RIGHT]:
-                    self.states[RIGHT] = False
-                    if data[LEFT]:
-                        self.states[LEFT] = True
-                        self.__turn(right=False)
-                    else:
-                        self.__stop()
-            elif self.direction == LEFT:
-                if not data[LEFT]:
-                    self.states[LEFT] = False
-                    if data[RIGHT]:
-                        self.states[RIGHT] = True
-                        self.__turn(right=True)
-                    else:
-                        self.__stop()
+        if (self.direction == RIGHT and not data[RIGHT]) or (self.direction == LEFT and not data[LEFT]):
+            self.servo.forward()
+            self.direction = FORWARD
+            self.states[RIGHT] = False
+            self.states[LEFT] = False
+
+        if data[RIGHT]:
+            self.servo.right()
+            self.direction = RIGHT
+            self.states[RIGHT] = True
+        elif data[LEFT]:
+            self.servo.left()
+            self.direction = LEFT
+            self.states[LEFT] = True
 
     def __acc(self):
         self.state = ACCELERATING
@@ -322,15 +314,6 @@ class Motor:
             self.left_wheel.stop()
             self.current_speed = 0
             self.state = STOP
-
-    def __turn(self, right):
-        self.direction = RIGHT if right else LEFT
-        if right:
-            self.left_wheel.forward(self.TURN_FORWARD_SPEED)
-            self.right_wheel.backward(self.TURN_BACKWARD_SPEED)
-        else:
-            self.right_wheel.forward(self.TURN_FORWARD_SPEED)
-            self.left_wheel.backward(self.TURN_BACKWARD_SPEED)
 
     def __stop(self):
         self.state = STOP
