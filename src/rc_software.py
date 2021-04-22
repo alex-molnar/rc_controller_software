@@ -6,6 +6,7 @@ from subprocess import run, check_output
 from time import sleep
 from threading import Thread
 from requests import get, post
+from requests.exceptions import Timeout
 from collections import defaultdict
 
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
@@ -102,25 +103,33 @@ class RcCar:
             print(f'Exception happened during get request:\n{e}')
             return False
 
-        self.lan_socket = socket(AF_INET, SOCK_STREAM)
-        self.lan_socket.bind((ADDR_ANY, PORT_ANY))
-        # although PORT_ANY is imported from bluetooth lib, its value is 0, and have the same symbolic meaning in both
-        # bluetooth, and python socket libraries. Since such constant is not provided by the socket library it is
-        # reasonable to use it here as well
+        ret = True
+        try:
+            self.lan_socket = socket(AF_INET, SOCK_STREAM)
+            self.lan_socket.bind((ADDR_ANY, PORT_ANY))
+            # although PORT_ANY is imported from bluetooth lib, its value is 0, and have the same symbolic meaning in
+            # both bluetooth, and python socket libraries. Since such constant is not provided by the socket library it
+            # is reasonable to use it here as well
 
-        post(CAESAR_URL.format('update'), params={
-            'id': self.db_id,
-            'name': self.db_name,
-            'ip': RcCar.__get_ip(),
-            'port': self.lan_socket.getsockname()[1],
-            'ssid': RcCar.__get_ssid(),
-            'available': 1
-        })
-        print(f'LAN port: {self.lan_socket.getsockname()[1]}, ssid: {RcCar.__get_ssid()}, ip: {self.lan_socket.getsockname()[0]}')
+            post(CAESAR_URL.format('update'), params={
+                'id': self.db_id,
+                'name': self.db_name,
+                'ip': RcCar.__get_ip(),
+                'port': self.lan_socket.getsockname()[1],
+                'ssid': RcCar.__get_ssid(),
+                'available': 1
+            }, timeout=NETWORK_TIMEOUT_TOLERANCE)
+            print(f'LAN port: {self.lan_socket.getsockname()[1]}, ssid: {RcCar.__get_ssid()}, ip: {self.lan_socket.getsockname()[0]}')
 
-        self.lan_socket.listen()
-        self.lan_socket.settimeout(1)
-        return True
+            self.lan_socket.listen()
+            self.lan_socket.settimeout(1)
+        except socket_error:
+            print("Some socket error happened")
+            ret = False
+        except Timeout:
+            print("Caesar server not available")
+            ret = False
+        return ret
 
     def __setup_bt_connection(self) -> bool:
         run(COMMAND_TURN_BLUETOOTH_DISCOVERY_ON, shell=True)
@@ -148,7 +157,10 @@ class RcCar:
         while not self.is_connection_alive:
             if timestamp_timer > 30 and server_socket.getsockname()[0] == '0.0.0.0':
                 timestamp_timer = 0
-                post(CAESAR_URL.format('activate'), params={'id': self.db_id})
+                try:
+                    post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
+                except Timeout:
+                    print("Caesar server not available, could not activate")
             try:
                 self.message_socket, _ = server_socket.accept()
                 connection_made = True
@@ -183,7 +195,10 @@ class RcCar:
     def run(self) -> None:
 
         while self.power_on:
-            post(CAESAR_URL.format('activate'), params={'id': self.db_id})
+            try:
+                post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
+            except Timeout:
+                print("Caesar unavailable, could not activate car.")
             try:
                 lan_thread = None
                 bt_thread = None
@@ -202,8 +217,10 @@ class RcCar:
                     bt_thread.join()
 
                 if self.is_connection_alive:
-                    post(CAESAR_URL.format('deactivate'), params={'id': self.db_id})
-
+                    try:
+                        post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
+                    except Timeout:
+                        print("Caesar not available could not deactivate car")
                     update_thread = Thread(target=self.send_updates)
                     update_thread.start()
                     self.receive_commands()
