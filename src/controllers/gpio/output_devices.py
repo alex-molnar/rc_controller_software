@@ -136,6 +136,35 @@ class LED(GeneralPurposeOutputDevice):
                     self._is_active_background = False
 
 
-if __name__ == "__main__":
-    l = LED(20)
-    l.blink(times=2)
+class StatusLED:
+
+    RED = (255, 0, 255)
+    GREEN = (0, 255, 255)
+    BLUE = (0, 0, 255)
+    PINK = (220, 0, 255)
+    PURPLE = (150, 0, 255)
+    CYAN = (0, 180, 255)
+    ORANGE = (230, 255, 255)
+    YELLOW = (180, 255, 255)
+
+    def __init__(self, red_pin, green_pin, start_red_value=0, start_green_value=0):
+        self.red_leg = LED(red_pin)
+        self.green_leg = LED(green_pin)
+
+        self.red_leg.value = start_red_value / 255
+        self.green_leg.value = start_green_value / 255
+        self._color = (start_red_value, start_green_value, 255)
+
+    @property
+    def color(self):
+        return self._color
+
+    @color.setter
+    def color(self, value):
+        assert isinstance(value, tuple)
+        assert len(value) == 3
+        assert 0 <= value[0] <= 255
+        assert 0 <= value[1] <= 255
+        self._color = value
+        self.red_leg.value = value[0] / 255
+        self.green_leg.value = value[1] / 255
