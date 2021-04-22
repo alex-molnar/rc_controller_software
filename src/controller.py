@@ -31,18 +31,16 @@ class Controller:
 
         :param pin_numbering: ignored, added so it is possible to parse the GPIO pins from file in the future
         """
-        # self.buzzer = Buzzer(17)
-        # self.lights = Lights([18,22], [20, 21, 26], 23, 27)
-        # self.distance_sensor = DistanceSensor(echo=4, trigger=3)
-        # self.line_sensor = LineSensor(24)
-        # self.motor = Motor([7, 8], [9, 10])
+        self.buzzer = Buzzer(26)
+        self.lights = Lights([4, 17, 18, 27], [24, 25], 22, 23)
+        # self.distance_sensor = DistanceSensor(echo=20, trigger=5)
+        self.line_sensor = LineSensor(21)
+        self.motor = Motor([7, 8], [9, 10])
 
-        # self.line_sensor.when_line = lambda: self.__set_line(True)
-        # self.line_sensor.when_no_line = lambda: self.__set_line(False)
+        self.line_sensor.when_line = lambda: self.__set_line(True)
+        self.line_sensor.when_no_line = lambda: self.__set_line(False)
 
         self.states = defaultdict(bool)
-        self.states[SPEED] = 69
-        self.states[DISTANCE] = 420
 
     def __honk(self, horn_pushed: bool) -> None:
         """
@@ -54,11 +52,10 @@ class Controller:
 
         :return: None
         """
-        # if horn_pushed and not self.buzzer.is_active:
-        #     self.buzzer.on()
-        # elif not horn_pushed and self.buzzer.is_active:
-        #     self.buzzer.off()
-        pass
+        if horn_pushed and not self.buzzer.is_active:
+            self.buzzer.on()
+        elif not horn_pushed and self.buzzer.is_active:
+            self.buzzer.off()
 
     def __set_line(self, line_detected: bool) -> None:
         """
@@ -70,9 +67,8 @@ class Controller:
 
         :return: None
         """
-        # self.states[LINE] = line_detected
-        # self.motor.line_detected = line_detected
-        pass
+        self.states[LINE] = line_detected
+        self.motor.line_detected = line_detected
 
     def set_values(self, data: dict):
         """
@@ -85,17 +81,9 @@ class Controller:
         :return: None
         """
         default_data = defaultdict(bool, data)
-
-        print(default_data)
-        for key, value in default_data.items():
-            self.states[key] = value
-        self.states[SPEED] = 69
-        self.states[DISTANCE] = 420
-        # default_data[DISTANCE] = self.states[DISTANCE]
-        # self.motor.handle_motor_control(default_data)
-        # default_data[BACKWARD] = self.motor.states[BACKWARD]
-        # self.lights.handle_lights(default_data)
-        # self.__honk(default_data[HORN])
+        self.motor.handle_motor_control(default_data)
+        self.lights.handle_lights(default_data)
+        self.__honk(default_data[HORN])
 
     def get_values(self) -> dict:
         """
@@ -105,14 +93,14 @@ class Controller:
 
         :return: state as key-value pairs
         """
-        # for key, value in self.motor.get_data():
-        #     self.states[key] = value
-        # for key, value in self.lights.get_data():
-        #     self.states[key] = value
+        for key, value in self.motor.get_data():
+            self.states[key] = value
+        for key, value in self.lights.get_data():
+            self.states[key] = value
 
-        # distance = round(self.distance_sensor.distance * 100, 2)
-        # self.states[DISTANCE] = distance
-        # self.motor.distance = distance
-        # self.states[SPEED] = round(self.motor.current_speed * 3.6 * 10, 2)
+        distance = 69  # round(self.distance_sensor.distance * 100, 2)
+        self.states[DISTANCE] = 69
+        self.motor.distance = distance
+        self.states[SPEED] = round(self.motor.current_speed * 3.6 * 10, 2)
 
         return dict(self.states)
