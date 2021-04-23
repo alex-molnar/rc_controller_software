@@ -1,7 +1,7 @@
 from sys import maxsize
 from os import chdir
 
-from json import dumps, loads, load, dump
+from json import dumps, loads, load, dump, JSONDecodeError
 from subprocess import run, check_output
 from time import sleep
 from threading import Thread
@@ -255,11 +255,14 @@ class RcCar:
                 print('POWEROFF request received')
                 self.power_on = False
             else:
-                loaded_data = loads(data)
-                if MODIFY_REQUEST in loaded_data.keys():
-                    self.__modify_config(loaded_data)
-                else:
-                    self.controllers.set_values(loaded_data)
+                try:
+                    loaded_data = loads(data)
+                    if MODIFY_REQUEST in loaded_data.keys():
+                        self.__modify_config(loaded_data)
+                    else:
+                        self.controllers.set_values(loaded_data)
+                except JSONDecodeError:
+                    pass
 
     def send_updates(self) -> None:
 
