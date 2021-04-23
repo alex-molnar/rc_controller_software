@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Optional
 
 from gpiozero import LineSensor, DistanceSensor
-from controllers.gpio.output_devices import Buzzer
+from controllers.gpio.buzzer import Buzzer
 from controllers.lighting import Lights
 from controllers.motor import Motor
 

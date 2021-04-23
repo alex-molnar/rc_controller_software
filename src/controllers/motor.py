@@ -3,7 +3,7 @@ from time import sleep
 from collections import defaultdict
 
 from gpiozero import Motor as Wheel
-from controllers.gpio.output_devices import Servo
+from controllers.gpio.servo import Servo
 
 # TODO: refactor contained + distance keeping
 
