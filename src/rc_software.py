@@ -1,3 +1,5 @@
+import controllers.gpio.gpio_setup_cleanup
+
 from sys import maxsize
 from os import chdir
 

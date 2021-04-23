@@ -1,10 +1,11 @@
 from collections import defaultdict
 from typing import Optional
 
-from gpiozero import LineSensor, DistanceSensor
+# from gpiozero import DistanceSensor
 from controllers.gpio.buzzer import Buzzer
 from controllers.lighting import Lights
 from controllers.motor import Motor
+from controllers.gpio.line_sensor import LineSensor
 
 HORN = 'horn'
 DISTANCE = 'distance'
@@ -36,8 +37,8 @@ class Controller:
         self.line_sensor = LineSensor(21)
         self.motor = Motor([7, 8], [9, 10])
 
-        self.line_sensor.when_line = lambda: self.motor.set_line(True)
-        self.line_sensor.when_no_line = lambda: self.motor.set_line(False)
+        self.line_sensor.on_line_undetected = lambda: self.motor.set_line(True)
+        self.line_sensor.on_line_undetected = lambda: self.motor.set_line(False)
 
         self.states = defaultdict(bool)
 

@@ -1,11 +1,4 @@
-from atexit import register
-
-from RPi.GPIO import PWM, OUT, BCM, setup as gpio_setup, setmode as set_gpio_mode, cleanup
-
-set_gpio_mode(BCM)
-
-# TODO: gpiozero is included at the moment, which calls GPIO.cleanup, but when it will be removed, the next line should be uncommented
-# register(GPIO.cleanup)
+from RPi.GPIO import PWM, OUT, setup as gpio_setup
 
 
 class GeneralPurposeOutputDevice:
