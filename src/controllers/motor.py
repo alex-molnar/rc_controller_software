@@ -2,7 +2,7 @@ from threading import Thread
 from time import sleep
 from collections import defaultdict
 
-from gpiozero import Motor as Wheel
+from controllers.gpio.wheel import Wheel
 from controllers.gpio.servo import Servo
 
 # TODO: refactor contained + distance keeping
