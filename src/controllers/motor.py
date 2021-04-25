@@ -1,6 +1,7 @@
 from threading import Thread
 from time import sleep
 from collections import defaultdict
+from logging import getLogger
 
 from controllers.gpio.wheel import Wheel
 from controllers.gpio.servo import Servo
@@ -63,24 +64,29 @@ class Motor:
         self.contain_state = STOP
 
         self.states = defaultdict(bool)
+        self.logger = getLogger('rc_controller')
 
     def set_line(self, detected):
         self.line_detected = detected
         self.states[LINE] = detected
+        self.logger.debug(f'Line {"un" if detected else ""}detected')
 
     def handle_motor_control(self, data):
         if data[DISTANCE_KEEPING]:
             if self.state == STOP:
+                self.logger.debug('Object avoidance started')
                 self.keeping_distance = True
                 self.states[DISTANCE_KEEPING] = True
                 Thread(target=self.__keep_distance).start()
         elif data[LINE_FOLLOWING]:
             if self.state == STOP:
+                self.logger.debug('Line following started')
                 self.following_line = True
                 self.states[LINE_FOLLOWING] = True
                 Thread(target=self.__follow_line).start()
         elif data[KEEP_CONTAINED]:
             if self.state == STOP:
+                self.logger.debug('Stop on line started')
                 self.keep_contained = True
                 self.states[KEEP_CONTAINED] = True
                 Thread(target=self.__keep_contained).start()
@@ -91,6 +97,7 @@ class Motor:
             self.keeping_distance = False
             self.following_line = False
             self.keep_contained = False
+            self.logger.debug('Automatic functionality stopped')
         else:
             self.__handle_speed(data)
             self.__handle_directions(data)

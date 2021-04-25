@@ -1,15 +1,18 @@
 import controllers.gpio.gpio_setup_cleanup
 
 from sys import maxsize
-from os import chdir
+from os import chdir, listdir, remove
+from pathlib import Path
 
 from json import dumps, loads, load, dump, JSONDecodeError
 from subprocess import run, check_output
 from time import sleep
+from datetime import datetime
 from threading import Thread
 from requests import get, post
 from requests.exceptions import Timeout
 from collections import defaultdict
+import logging
 
 from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
 from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
@@ -48,6 +51,26 @@ class RcCar:
 
     def __init__(self):
         chdir(RUN_DIRECTORY)
+        Path('log').mkdir(exist_ok=True)
+        log_files = sorted(listdir('log'))
+        if len(log_files) == 10:
+            remove(log_files[0])
+
+        self.logger = logging.getLogger('rc_controller')
+        self.logger.setLevel(logging.DEBUG)
+
+        fh = logging.FileHandler(f'log/{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
+        fh.setLevel(logging.DEBUG)
+
+        sh = logging.StreamHandler()
+        sh.setLevel(logging.INFO)
+
+        fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)5s: %(message)s', '%Y-%m-%d %H:%M:%S'))
+        sh.setFormatter(logging.Formatter('%(levelname)5s: %(message)s'))
+
+        self.logger.addHandler(fh)
+        self.logger.addHandler(sh)
+
         self.controllers = Controller()
         self.power_on = True
         self.is_connection_alive = False
@@ -90,13 +113,12 @@ class RcCar:
         }
 
         if default_data['old_password'] == self.password:
-            print('data wrote')
+            self.logger.info("Config modified successfully")
             message = dumps({MODIFY_REQUEST: True}) + '\n'
             with open('config.json', 'w') as f:
                 dump(config, f)
         else:
-            print('REJECTED')
-            print(default_data)
+            self.logger.info("Config modification failed. Wrong password was provided.")
             message = dumps({MODIFY_REQUEST: False}) + '\n'
 
         self.message_socket.sendall(message.encode())
@@ -105,8 +127,8 @@ class RcCar:
         try:
             get(GOOGLE_DOMAIN, timeout=NETWORK_TIMEOUT_TOLERANCE)
         except Exception as e:
-            # TODO: handle no internet (bluetooth, red LED)
-            print(f'Exception happened during get request:\n{e}')
+            self.logger.warning("There is no internet connection")
+            self.status_led.color = StatusLED.PURPLE
             return False
 
         ret = True
@@ -125,15 +147,15 @@ class RcCar:
                 'ssid': RcCar.__get_ssid(),
                 'available': 1
             }, timeout=NETWORK_TIMEOUT_TOLERANCE)
-            print(f'LAN port: {self.lan_socket.getsockname()[1]}, ssid: {RcCar.__get_ssid()}, ip: {self.lan_socket.getsockname()[0]}')
 
+            self.logger.info('LAN connection has been set up')
             self.lan_socket.listen()
             self.lan_socket.settimeout(1)
         except socket_error:
-            print("Some socket error happened")
+            self.logger.warning('A socket exception happened during LAN setup')
             ret = False
         except Timeout:
-            print("Caesar server not available")
+            self.logger.warning('Caesar server is unreachable')
             ret = False
         return ret
 
@@ -153,20 +175,19 @@ class RcCar:
             service_classes=[UUID, SERIAL_PORT_CLASS],
             profiles=[SERIAL_PORT_PROFILE]
         )
-        print(f'BT port: {port}, uuid: {UUID}')
+        self.logger.info('Bluetooth connection has been set up successfully')
         return True
 
     def __receive_connection(self, server_socket) -> None:
         connection_made = False
         timestamp_timer = 0
-        print(f'Accepting {"LAN" if server_socket.getsockname()[0] == "0.0.0.0" else "BT"} Connection...')
         while not self.is_connection_alive:
             if timestamp_timer > 30 and server_socket.getsockname()[0] == '0.0.0.0':
                 timestamp_timer = 0
                 try:
                     post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
                 except Timeout:
-                    print("Caesar server not available, could not activate")
+                    self.logger.warning("Caesar server is unreachable, could not update timestamp")
             try:
                 self.message_socket, _ = server_socket.accept()
                 connection_made = True
@@ -175,21 +196,22 @@ class RcCar:
                 timestamp_timer += 1
 
         if not connection_made:
-            print(f'returning, since {"LAN" if server_socket.getsockname()[0] != "0.0.0.0" else "BT"} connected..')
+            self.logger.debug('Returning from receive connection, since the other device connected')
             return
 
         tries = 1
         received_password = self.message_socket.recv(RECV_MAX_BYTES).decode()
         while received_password != self.password and tries < 3:
-            print(REJECTED)
+            self.logger.info(f'Wrong password provided. Available tries: {3-tries}')
             self.message_socket.sendall(f'{REJECTED}\n'.encode())
             tries += 1
             received_password = self.message_socket.recv(RECV_MAX_BYTES).decode()
 
         if self.password == received_password:
-            print(GRANTED)
+            self.logger.info('Connection accepted')
             self.message_socket.sendall(f'{GRANTED}\n'.encode())
         else:
+            self.logger.info('Connection refused')
             self.message_socket.sendall(f'{FINAL_REJECTION}\n'.encode())
             self.is_connection_alive = False
             sleep(0.5)
@@ -204,7 +226,7 @@ class RcCar:
             try:
                 post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
             except Timeout:
-                print("Caesar unavailable, could not activate car.")
+                self.logger.warning("Caesar server is unreachable, could not activate car in db")
             try:
                 lan_thread = None
                 bt_thread = None
@@ -226,7 +248,7 @@ class RcCar:
                     try:
                         post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
                     except Timeout:
-                        print("Caesar not available could not deactivate car")
+                        self.logger.warning("Caesar server is unreachable, could not deactivate car in db")
                     self.status_led.color = StatusLED.ORANGE
                     update_thread = Thread(target=self.send_updates)
                     update_thread.start()
@@ -234,16 +256,16 @@ class RcCar:
                     update_thread.join()
                     self.status_led.color = StatusLED.PINK
             except Exception as e:
-                print(e)
+                self.logger.warning(f'Exception happened during execution: {e}')
                 self.is_connection_alive = False
             finally:
                 try:
-                    print('closing connections')
+                    self.logger.debug('Closing connections')
                     self.message_socket.close()
                 except:
                     pass
 
-        print('closing main socket before exiting..')
+        self.logger.debug('Closing main socket before exiting')
         try:
             self.controllers.line_sensor.finish()
             self.lan_socket.close()
@@ -261,7 +283,7 @@ class RcCar:
                 self.is_connection_alive = False
                 break
             elif data == POWEROFF:
-                print('POWEROFF request received')
+                self.logger.info('POWEROFF request received')
                 self.power_on = False
             else:
                 try:
@@ -271,14 +293,14 @@ class RcCar:
                     else:
                         self.controllers.set_values(loaded_data)
                 except JSONDecodeError:
-                    pass
+                    self.logger.debug('JSON decode error happened. Message lost')
 
     def send_updates(self) -> None:
 
         while self.is_connection_alive:
             message = dumps(self.controllers.get_values()) + '\n'
             self.message_socket.sendall(message.encode())
-            sleep(0.05)  # distance sensor
+            sleep(0.05)
 
 
 if __name__ == '__main__':

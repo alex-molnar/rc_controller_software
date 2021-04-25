@@ -1,4 +1,5 @@
 from collections import defaultdict
+from logging import getLogger
 from typing import Optional
 
 # from gpiozero import DistanceSensor
@@ -38,6 +39,7 @@ class Controller:
         self.motor = Motor([7, 8], [9, 10])
 
         self.states = defaultdict(bool)
+        self.logger = getLogger('rc_controller')
 
     def __honk(self, horn_pushed: bool) -> None:
         """
@@ -51,8 +53,10 @@ class Controller:
         """
         if horn_pushed and not self.buzzer.is_active:
             self.buzzer.on()
+            self.logger.debug('Honk started')
         elif not horn_pushed and self.buzzer.is_active:
             self.buzzer.off()
+            self.logger.debug('Honk stopped')
 
     def set_values(self, data: dict):
         """
