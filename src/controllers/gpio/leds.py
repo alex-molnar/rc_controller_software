@@ -1,7 +1,7 @@
 from time import sleep
 from threading import Thread
 
-from output_device import GeneralPurposeOutputDevice
+from controllers.gpio.output_device import GeneralPurposeOutputDevice
 
 
 class LED(GeneralPurposeOutputDevice):

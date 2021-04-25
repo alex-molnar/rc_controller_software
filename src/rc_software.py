@@ -15,6 +15,7 @@ from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_err
 from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
 
 from controller import Controller
+from controllers.gpio.leds import StatusLED
 
 
 RUN_DIRECTORY = '/home/alex/rc_controller_software/src'
@@ -50,6 +51,9 @@ class RcCar:
         self.controllers = Controller()
         self.power_on = True
         self.is_connection_alive = False
+
+        self.status_led = StatusLED(19, 16)
+        self.status_led.color = StatusLED.PINK
 
         with open(CONFIG_FILE, 'r') as f:
             config = load(f)
@@ -223,10 +227,12 @@ class RcCar:
                         post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
                     except Timeout:
                         print("Caesar not available could not deactivate car")
+                    self.status_led.color = StatusLED.ORANGE
                     update_thread = Thread(target=self.send_updates)
                     update_thread.start()
                     self.receive_commands()
                     update_thread.join()
+                    self.status_led.color = StatusLED.PINK
             except Exception as e:
                 print(e)
                 self.is_connection_alive = False

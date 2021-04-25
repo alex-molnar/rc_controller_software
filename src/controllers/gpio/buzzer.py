@@ -1,6 +1,6 @@
 from time import sleep
 
-from output_device import GeneralPurposeOutputDevice
+from controllers.gpio.output_device import GeneralPurposeOutputDevice
 
 
 class Buzzer(GeneralPurposeOutputDevice):
