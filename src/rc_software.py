@@ -239,6 +239,7 @@ class RcCar:
 
         print('closing main socket before exiting..')
         try:
+            self.controllers.line_sensor.finish()
             self.lan_socket.close()
         except:
             pass

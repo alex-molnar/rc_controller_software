@@ -1,39 +1,37 @@
-from threading import Thread
+from multiprocessing import Process
 from time import sleep
 
 from RPi.GPIO import IN, setup as gpio_setup, input as gpio_input
 
+DETECTED = 0
+UNDETECTED = 1
+
 
 class LineSensor:
 
-    def __init__(self, pin):
-        self.pin = pin
+    def __init__(self, pin, on_line_detected, on_line_undetected):
         gpio_setup(pin, IN)
-        self._finished = False
-        self.state = gpio_input(self.pin)
-        self.on_line_detected = None
-        self.on_line_undetected = None
-        self.poll_thread = Thread(target=self.__poll)
-        self.poll_thread.start()
+        self.pin = pin
 
-    def __del__(self):
-        self.finish()
+        self.event_functions = {
+            DETECTED: on_line_detected,
+            UNDETECTED: on_line_undetected
+        }
 
-    def __poll(self):
-        while not self._finished:
-            new_state = gpio_input(self.pin)
-            if new_state == 1 and self.state == 0:
-                self.state = 1
-                if self.on_line_undetected is not None:
-                    self.on_line_undetected()
-            elif new_state == 0 and self.state == 1:
-                self.state = 0
-                if self.on_line_detected is not None:
-                    self.on_line_detected()
-            sleep(0.01)
-
-    def get(self):
-        return f'Line {"not " if self.state == 1 else ""}detected'
+        self.poll_process = Process(target=self.__poll)
+        self.poll_process.start()
 
     def finish(self):
-        self._finished = True
+        self.poll_process.terminate()
+
+    def __poll(self):
+        state = gpio_input(self.pin)
+
+        while True:
+            new_state = gpio_input(self.pin)
+
+            if new_state != state:
+                state = new_state
+                self.event_functions[new_state]()
+
+            sleep(0.01)

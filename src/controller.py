@@ -34,11 +34,8 @@ class Controller:
         self.buzzer = Buzzer(26)
         self.lights = Lights([4, 17, 18, 27], [24, 25], 22, 23)
         # self.distance_sensor = DistanceSensor(echo=20, trigger=5)
-        self.line_sensor = LineSensor(21)
+        self.line_sensor = LineSensor(21, lambda: self.motor.set_line(True), lambda: self.motor.set_line(False))
         self.motor = Motor([7, 8], [9, 10])
-
-        self.line_sensor.on_line_undetected = lambda: self.motor.set_line(True)
-        self.line_sensor.on_line_undetected = lambda: self.motor.set_line(False)
 
         self.states = defaultdict(bool)
 
