@@ -10,10 +10,10 @@ class Buzzer(GeneralPurposeOutputDevice):
         self._is_active = not self._value == 0
 
     @property
-    def is_active(self):
+    def is_active(self) -> bool:
         return self._is_active
 
-    def buzz(self, seconds: float = 1):
+    def buzz(self, seconds: float = 1) -> None:
         assert seconds > 0
         try:
             self._is_active = True
@@ -23,10 +23,10 @@ class Buzzer(GeneralPurposeOutputDevice):
             self.off()
             self._is_active = True
 
-    def on(self):
+    def on(self) -> None:
         self._is_active = True
         super().on()
 
-    def off(self):
+    def off(self) -> None:
         self._is_active = False
         super().off()

@@ -24,7 +24,7 @@ class Controller:
     {"forward": True, "lights": True}
     """
 
-    def __init__(self, pin_numbering=None):
+    def __init__(self):
         """
         Initialises the GPIO components, and other control components
 
@@ -58,7 +58,7 @@ class Controller:
             self.buzzer.off()
             self.logger.debug('Honk stopped')
 
-    def set_values(self, data: dict):
+    def set_values(self, data: dict) -> None:
         """
         Sets the state of the car, and changes behavior if possible, or necessary.
 

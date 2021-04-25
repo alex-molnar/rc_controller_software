@@ -1,5 +1,6 @@
 from time import sleep
 from threading import Thread
+from typing import Tuple
 
 from controllers.gpio.output_device import GeneralPurposeOutputDevice
 
@@ -11,7 +12,7 @@ class LED(GeneralPurposeOutputDevice):
     def __init__(self, pin: int, starting_value: float = 0, max_value: float = 1):
         super().__init__(pin, starting_value, max_value)
 
-    def _active_sleep(self, seconds):
+    def _active_sleep(self, seconds: float) -> None:
         int_seconds = int(seconds // 1 * 100)
         int_deciseconds = int(seconds % 1 * 10 // 1 * 10)
         for _ in range(int_seconds + int_deciseconds):
@@ -19,7 +20,15 @@ class LED(GeneralPurposeOutputDevice):
                 break
             sleep(0.01)
 
-    def blink(self, times=1, on_time=0.5, off_time=0.5, fade_in_time=1, fade_out_time=1, non_blocking=False):
+    def blink(
+        self,
+        times: int = 1,
+        on_time: float = 0.5,
+        off_time: float = 0.5,
+        fade_in_time: float = 1,
+        fade_out_time: float = 1,
+        non_blocking: bool = False
+    ) -> None:
         assert times == self.INF or 1 <= times
         assert 0 <= on_time
         assert 0 <= off_time
@@ -82,7 +91,7 @@ class StatusLED:
     ORANGE = (230, 255, 255)
     YELLOW = (180, 255, 255)
 
-    def __init__(self, red_pin, green_pin, start_red_value=0, start_green_value=0):
+    def __init__(self, red_pin: int, green_pin: int, start_red_value: int = 0, start_green_value: int = 0):
         self.red_leg = LED(red_pin)
         self.green_leg = LED(green_pin)
 
@@ -91,11 +100,11 @@ class StatusLED:
         self._color = (start_red_value, start_green_value, 255)
 
     @property
-    def color(self):
+    def color(self) -> Tuple[int, int, int]:
         return self._color
 
     @color.setter
-    def color(self, value):
+    def color(self, value: Tuple[int, int, int]) -> None:
         assert isinstance(value, tuple)
         assert len(value) == 3
         assert 0 <= value[0] <= 255

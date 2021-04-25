@@ -3,18 +3,18 @@ from controllers.gpio.output_device import GeneralPurposeOutputDevice
 
 class Wheel:
 
-    def __init__(self, forward_pin, backward_pin):
+    def __init__(self, forward_pin: int, backward_pin: int):
         self._forward_device = GeneralPurposeOutputDevice(forward_pin)
         self._backward_device = GeneralPurposeOutputDevice(backward_pin)
 
-    def forward(self, speed=1):
+    def forward(self, speed: float = 1) -> None:
         self._backward_device.off()
         self._forward_device.value = speed
 
-    def backward(self, speed=1):
+    def backward(self, speed: float = 1) -> None:
         self._forward_device.off()
         self._backward_device.value = speed
 
-    def stop(self):
+    def stop(self) -> None:
         self._forward_device.off()
         self._backward_device.off()

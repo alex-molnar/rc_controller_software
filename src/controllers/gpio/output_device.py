@@ -17,18 +17,18 @@ class GeneralPurposeOutputDevice:
         self._device.stop()
 
     @property
-    def value(self):
+    def value(self) -> float:
         return self._value
 
     @value.setter
-    def value(self, new_value: float):
+    def value(self, new_value: float) -> None:
         assert 0 <= new_value <= self._max_value
         self._value = new_value
         self._device.ChangeDutyCycle(self._value * 100)
         self._is_active_background = False
 
-    def on(self):
+    def on(self) -> None:
         self.value = self._max_value
 
-    def off(self):
+    def off(self) -> None:
         self.value = 0

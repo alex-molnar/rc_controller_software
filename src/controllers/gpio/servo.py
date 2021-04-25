@@ -8,7 +8,7 @@ class Servo:
     Class to controll the servo motor
     """
 
-    def __init__(self, pin, initial_angle=0, min_duty=2, max_duty=12):
+    def __init__(self, pin: int, initial_angle: int = 0, min_duty: int = 2, max_duty: int = 12):
         assert min_duty < max_duty
         gpio_setup(pin, OUT)
         self._min_duty = min_duty
@@ -24,54 +24,54 @@ class Servo:
         self._servo.stop()
 
     @property
-    def angle(self):
+    def angle(self) -> float:
         return (self._angle - self._min_duty) * self._scale_number - 90
 
     @angle.setter
-    def angle(self, value):
+    def angle(self, value: int) -> None:
         assert -90 <= value <= 90
         self._angle = (value + 95) / self._scale_number + self._min_duty  # 95 because the inaccuracy of hardware
         self._servo.ChangeDutyCycle(self._angle)
 
     @property
-    def min_duty(self):
+    def min_duty(self) -> int:
         return self._min_duty
 
     @min_duty.setter
-    def min_duty(self, value):
+    def min_duty(self, value: int) -> None:
         assert 0 <= value <= 100
         assert value < self._max_duty
         self._min_duty = value
         self._scale_number = 180 / (self._max_duty - self._min_duty)
 
     @property
-    def max_duty(self):
+    def max_duty(self) -> int:
         return self._max_duty
 
     @max_duty.setter
-    def max_duty(self, value):
+    def max_duty(self, value: int) -> None:
         assert 0 <= value <= 100
         assert self._min_duty < value
         self._max_duty = value
         self._scale_number = 180 / (self._max_duty - self._min_duty)
 
-    def min(self):
+    def min(self) -> None:
         self._angle = self._min_duty
         self._servo.ChangeDutyCycle(self._angle)
 
-    def max(self):
+    def max(self) -> None:
         self._angle = self._max_duty
         self._servo.ChangeDutyCycle(self._angle)
 
-    def mid(self):
+    def mid(self) -> None:
         self._angle = (self._min_duty + self._max_duty) / 2
         self._servo.ChangeDutyCycle(self._angle)
 
-    def left(self):
+    def left(self) -> None:
         self.angle = 15
 
-    def right(self):
+    def right(self) -> None:
         self.angle = -15
 
-    def forward(self):
+    def forward(self) -> None:
         self.angle = 0

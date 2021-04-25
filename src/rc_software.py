@@ -99,7 +99,7 @@ class RcCar:
     def __get_ssid() -> str:
         return check_output(COMMAND_GET_NETWORK_ADDRESS).split(b'"')[1].decode()
 
-    def __modify_config(self, data) -> None:
+    def __modify_config(self, data: dict) -> None:
         default_data = defaultdict(lambda: DEFAULT, data)
         if default_data['name'] == DEFAULT:
             default_data['name'] = self.db_name

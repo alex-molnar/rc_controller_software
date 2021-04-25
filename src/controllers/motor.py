@@ -2,11 +2,11 @@ from threading import Thread
 from time import sleep
 from collections import defaultdict
 from logging import getLogger
+from typing import List, Dict, ItemsView, Any
 
 from controllers.gpio.wheel import Wheel
 from controllers.gpio.servo import Servo
 
-# TODO: refactor contained + distance keeping
 
 FORWARD = 'forward'
 BACKWARD = 'backward'
@@ -39,7 +39,7 @@ class Motor:
     MAX_DISTANCE = 20
     TURN_DIRECTION = RIGHT
 
-    def __init__(self, right_wheel_pins, left_wheel_pins):
+    def __init__(self, right_wheel_pins: List[int], left_wheel_pins: List[int]):
         self.right_wheel = Wheel(*right_wheel_pins)
         self.left_wheel = Wheel(*left_wheel_pins)
         self.servo = Servo(6)
@@ -66,12 +66,12 @@ class Motor:
         self.states = defaultdict(bool)
         self.logger = getLogger('rc_controller')
 
-    def set_line(self, detected):
+    def set_line(self, detected: bool) -> None:
         self.line_detected = detected
         self.states[LINE] = detected
         self.logger.debug(f'Line {"un" if detected else ""}detected')
 
-    def handle_motor_control(self, data):
+    def handle_motor_control(self, data: Dict[str, bool]) -> None:
         if data[DISTANCE_KEEPING]:
             if self.state == STOP:
                 self.logger.debug('Object avoidance started')
@@ -102,10 +102,10 @@ class Motor:
             self.__handle_speed(data)
             self.__handle_directions(data)
 
-    def get_data(self):
+    def get_data(self) -> ItemsView[Any, bool]:
         return self.states.items()
 
-    def __keep_distance(self):
+    def __keep_distance(self) -> None:
         self.state = DISTANCE_STATE
         self.states[REVERSE] = False
         right_turn = self.TURN_DIRECTION == RIGHT
@@ -165,7 +165,7 @@ class Motor:
         self.right_wheel.stop()
         self.current_speed = 0
 
-    def __follow_line(self):
+    def __follow_line(self) -> None:
         self.state = LINE_STATE
         while self.following_line:
             print(f"Following Line: {self.line_detected}")
@@ -173,7 +173,7 @@ class Motor:
         print('Not Following Line Anymore..')
         self.__stop()
 
-    def __keep_contained(self):
+    def __keep_contained(self) -> None:
         self.state = CONTAIN_STATE
         self.states[REVERSE] = False
         right_turn = self.TURN_DIRECTION == RIGHT
@@ -236,7 +236,7 @@ class Motor:
         self.right_wheel.stop()
         self.current_speed = 0
 
-    def __handle_speed(self, data):
+    def __handle_speed(self, data: Dict[str, bool]) -> None:
         self.states[REVERSE] = data[REVERSE]
 
         if self.state == STOP or (self.state in [DISTANCE_STATE, LINE_STATE] and data[FORWARD]):
@@ -271,7 +271,7 @@ class Motor:
                 self.can_accelerate = True
                 Thread(target=self.__acc).start()
 
-    def __handle_directions(self, data):
+    def __handle_directions(self, data: Dict[str, bool]) -> None:
         if (self.direction == RIGHT and not data[RIGHT]) or (self.direction == LEFT and not data[LEFT]):
             self.servo.forward()
             self.direction = FORWARD
@@ -287,7 +287,7 @@ class Motor:
             self.direction = LEFT
             self.states[LEFT] = True
 
-    def __acc(self):
+    def __acc(self) -> None:
         self.state = ACCELERATING
 
         if self.current_speed < 0.2:
@@ -303,7 +303,7 @@ class Motor:
             sleep(0.1)
             self.current_speed += 0.05
 
-    def __break(self):
+    def __break(self) -> None:
         self.state = BREAKING
 
         while self.can_break and self.current_speed > 0.2:
@@ -322,7 +322,7 @@ class Motor:
             self.current_speed = 0
             self.state = STOP
 
-    def __stop(self):
+    def __stop(self) -> None:
         self.state = STOP
         self.direction = FORWARD
         self.left_wheel.stop()
