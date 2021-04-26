@@ -1,6 +1,6 @@
 from collections import defaultdict
 from logging import getLogger
-from typing import List, ItemsView, Any
+from typing import List, ItemsView, Any, Dict
 
 from controllers.gpio.leds import LED
 

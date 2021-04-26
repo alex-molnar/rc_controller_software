@@ -47,7 +47,7 @@ class RcCar:
         Path('log').mkdir(exist_ok=True)
         log_files = sorted(listdir('log'))
         if len(log_files) == 10:
-            remove(log_files[0])
+            remove(f'log/{log_files[0]}')
 
         self.logger = logging.getLogger('rc_controller')
         self.logger.setLevel(logging.DEBUG)
@@ -58,13 +58,13 @@ class RcCar:
         sh = logging.StreamHandler()
         sh.setLevel(logging.INFO)
 
-        fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)5s: %(message)s', '%Y-%m-%d %H:%M:%S'))
+        fh.setFormatter(logging.Formatter('%(asctime)s - %(levelname)7s: %(message)s', '%Y-%m-%d %H:%M:%S'))
         sh.setFormatter(logging.Formatter('%(levelname)5s: %(message)s'))
 
         self.logger.addHandler(fh)
         self.logger.addHandler(sh)
 
-        self.controllers = Controller()
+        self.controller = Controller()
         self.power_on = True
         self.is_connection_alive = False
 
@@ -189,7 +189,7 @@ class RcCar:
                 self.message_socket.close()
 
         self.logger.debug('Closing main sockets before exiting')
-        self.controllers.line_sensor.finish()
+        self.controller.line_sensor.finish()
         for sock in self.sockets:
             sock.close()
 
@@ -212,14 +212,14 @@ class RcCar:
                     if MODIFY_REQUEST in loaded_data.keys():
                         self.__modify_config(loaded_data)
                     else:
-                        self.controllers.set_values(loaded_data)
+                        self.controller.set_values(loaded_data)
                 except JSONDecodeError:
                     self.logger.debug('JSON decode error happened. Message lost')
 
     def send_updates(self) -> None:
 
         while self.is_connection_alive:
-            message = dumps(self.controllers.get_values()) + '\n'
+            message = dumps(self.controller.get_values()) + '\n'
             self.message_socket.sendall(message.encode())
             sleep(0.05)
 
