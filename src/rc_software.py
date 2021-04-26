@@ -1,6 +1,5 @@
 import controllers.gpio.gpio_setup_cleanup
 
-from sys import maxsize
 from os import chdir, listdir, remove
 from pathlib import Path
 
@@ -9,13 +8,17 @@ from subprocess import run, check_output
 from time import sleep
 from datetime import datetime
 from threading import Thread
-from requests import get, post
+from requests import post
 from requests.exceptions import Timeout
 from collections import defaultdict
+from typing import List
+from multiprocessing import Queue
+from socket import socket, AF_INET, SOCK_DGRAM
 import logging
 
-from socket import socket, AF_INET, SOCK_STREAM, SOCK_DGRAM, error as socket_error
-from bluetooth import BluetoothSocket, RFCOMM, PORT_ANY, SERIAL_PORT_CLASS, SERIAL_PORT_PROFILE, advertise_service
+from sockets.socket_base import SocketBase
+from sockets.lan_socket import LANSocket
+from sockets.bt_socket import BTSocket
 
 from controller import Controller
 from controllers.gpio.leds import StatusLED
@@ -23,28 +26,18 @@ from controllers.gpio.leds import StatusLED
 
 RUN_DIRECTORY = '/home/alex/rc_controller_software/src'
 
-GOOGLE_DOMAIN = 'https://google.com/'
 CAESAR_URL = 'https://kingbrady.web.elte.hu/rc_car/{}.php'
 GOOGLE_PUBLIC_DNS = '8.8.8.8'
-ADDR_ANY = ''
 
 COMMAND_GET_NETWORK_ADDRESS = ['sudo', 'iwgetid']
-COMMAND_TURN_BLUETOOTH_DISCOVERY_ON = 'sh/bt_disc_on.sh >/dev/null 2>&1'
 COMMAND_POWEROFF = 'sudo poweroff'
 
 NETWORK_TIMEOUT_TOLERANCE = 1
-RECV_MAX_BYTES = 1024
-
-UUID = '94f39d29-7d6d-583a-973b-fba39e49d4ee'
-BT_NAME = 'RC_car_raspberrypi'
 
 CONFIG_FILE = 'config.json'
 POWEROFF = 'POWEROFF'
 DEFAULT = 'default'
 MODIFY_REQUEST = 'modify'
-GRANTED = 'granted'
-REJECTED = 'rejected'
-FINAL_REJECTION = 'final_rejection'
 
 
 class RcCar:
@@ -76,7 +69,6 @@ class RcCar:
         self.is_connection_alive = False
 
         self.status_led = StatusLED(19, 16)
-        self.status_led.color = StatusLED.PINK
 
         with open(CONFIG_FILE, 'r') as f:
             config = load(f)
@@ -84,8 +76,24 @@ class RcCar:
             self.db_id = config['id']
             self.db_name = config['device_name']
 
-        self.is_lan_active = self.__setup_lan_connection()
-        self.is_bt_active = self.__setup_bt_connection()
+        sockets = [LANSocket(), BTSocket()]
+        for sock in sockets:
+            sock.setup_connections()
+        self.sockets: List[SocketBase] = list(filter(lambda s: s.is_active, sockets))
+        self.color = StatusLED.PINK if len(sockets) == len(self.sockets) else StatusLED.CYAN
+        self.status_led.color = self.color
+
+        post(CAESAR_URL.format('update'), params={
+            'id': self.db_id,
+            'name': self.db_name,
+            'ip': RcCar.__get_ip(),
+            'port': self.sockets[0].sock.getsockname()[1],
+            'ssid': RcCar.__get_ssid(),
+            'available': 1
+        }, timeout=NETWORK_TIMEOUT_TOLERANCE)
+
+        self.message_queue = Queue()
+        self.message_socket: SocketBase
 
     @staticmethod
     def __get_ip() -> str:
@@ -98,6 +106,30 @@ class RcCar:
     @staticmethod
     def __get_ssid() -> str:
         return check_output(COMMAND_GET_NETWORK_ADDRESS).split(b'"')[1].decode()
+
+    def __activate(self):
+        try:
+            post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
+        except Timeout:
+            self.logger.warning("Caesar server is unreachable, could not activate car in db")
+
+    def __deactivate(self):
+        try:
+            post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
+        except Timeout:
+            self.logger.warning("Caesar server is unreachable, could not deactivate car in db")
+
+    def __run_session(self):
+        self.__deactivate()
+        self.status_led.color = StatusLED.ORANGE
+        self.is_connection_alive = True
+
+        update_thread = Thread(target=self.send_updates)
+        update_thread.start()
+        self.receive_commands()
+
+        update_thread.join()
+        self.status_led.color = self.color
 
     def __modify_config(self, data: dict) -> None:
         default_data = defaultdict(lambda: DEFAULT, data)
@@ -123,154 +155,43 @@ class RcCar:
 
         self.message_socket.sendall(message.encode())
 
-    def __setup_lan_connection(self) -> bool:
-        try:
-            get(GOOGLE_DOMAIN, timeout=NETWORK_TIMEOUT_TOLERANCE)
-        except Exception as e:
-            self.logger.warning("There is no internet connection")
-            self.status_led.color = StatusLED.PURPLE
-            return False
-
-        ret = True
-        try:
-            self.lan_socket = socket(AF_INET, SOCK_STREAM)
-            self.lan_socket.bind((ADDR_ANY, PORT_ANY))
-            # although PORT_ANY is imported from bluetooth lib, its value is 0, and have the same symbolic meaning in
-            # both bluetooth, and python socket libraries. Since such constant is not provided by the socket library it
-            # is reasonable to use it here as well
-
-            post(CAESAR_URL.format('update'), params={
-                'id': self.db_id,
-                'name': self.db_name,
-                'ip': RcCar.__get_ip(),
-                'port': self.lan_socket.getsockname()[1],
-                'ssid': RcCar.__get_ssid(),
-                'available': 1
-            }, timeout=NETWORK_TIMEOUT_TOLERANCE)
-
-            self.logger.info('LAN connection has been set up')
-            self.lan_socket.listen()
-            self.lan_socket.settimeout(1)
-        except socket_error:
-            self.logger.warning('A socket exception happened during LAN setup')
-            ret = False
-        except Timeout:
-            self.logger.warning('Caesar server is unreachable')
-            ret = False
-        return ret
-
-    def __setup_bt_connection(self) -> bool:
-        run(COMMAND_TURN_BLUETOOTH_DISCOVERY_ON, shell=True)
-        self.bt_socket = BluetoothSocket(RFCOMM)
-        self.bt_socket.bind((ADDR_ANY, PORT_ANY))
-        self.bt_socket.settimeout(1)
-        self.bt_socket.listen(maxsize)
-
-        port = self.bt_socket.getsockname()[1]
-
-        advertise_service(
-            self.bt_socket,
-            BT_NAME,
-            service_id=UUID,
-            service_classes=[UUID, SERIAL_PORT_CLASS],
-            profiles=[SERIAL_PORT_PROFILE]
-        )
-        self.logger.info('Bluetooth connection has been set up successfully')
-        return True
-
-    def __receive_connection(self, server_socket) -> None:
-        connection_made = False
-        timestamp_timer = 0
-        while not self.is_connection_alive:
-            if timestamp_timer > 30 and server_socket.getsockname()[0] == '0.0.0.0':
-                timestamp_timer = 0
-                try:
-                    post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
-                except Timeout:
-                    self.logger.warning("Caesar server is unreachable, could not update timestamp")
-            try:
-                self.message_socket, _ = server_socket.accept()
-                connection_made = True
-                self.is_connection_alive = True
-            except socket_error:
-                timestamp_timer += 1
-
-        if not connection_made:
-            self.logger.debug('Returning from receive connection, since the other device connected')
-            return
-
-        tries = 1
-        received_password = self.message_socket.recv(RECV_MAX_BYTES).decode()
-        while received_password != self.password and tries < 3:
-            self.logger.info(f'Wrong password provided. Available tries: {3-tries}')
-            self.message_socket.sendall(f'{REJECTED}\n'.encode())
-            tries += 1
-            received_password = self.message_socket.recv(RECV_MAX_BYTES).decode()
-
-        if self.password == received_password:
-            self.logger.info('Connection accepted')
-            self.message_socket.sendall(f'{GRANTED}\n'.encode())
-        else:
-            self.logger.info('Connection refused')
-            self.message_socket.sendall(f'{FINAL_REJECTION}\n'.encode())
-            self.is_connection_alive = False
-            sleep(0.5)
-            try:
-                self.message_socket.close()
-            except:
-                pass
-
     def run(self) -> None:
 
         while self.power_on:
+            self.__activate()
             try:
-                post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
-            except Timeout:
-                self.logger.warning("Caesar server is unreachable, could not activate car in db")
-            try:
-                lan_thread = None
-                bt_thread = None
+                threads = [Thread(target=sock.accept_connection, args=(self.message_queue,)) for sock in self.sockets]
 
-                if self.is_lan_active:
-                    lan_thread = Thread(target=self.__receive_connection, args=(self.lan_socket,))
-                    lan_thread.start()
+                for thread in threads:
+                    thread.start()
 
-                if self.is_bt_active:
-                    bt_thread = Thread(target=self.__receive_connection, args=(self.bt_socket,))
-                    bt_thread.start()
+                self.message_queue.get()
 
-                if lan_thread:
-                    lan_thread.join()
-                if bt_thread:
-                    bt_thread.join()
+                success = False
 
-                if self.is_connection_alive:
-                    try:
-                        post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
-                    except Timeout:
-                        self.logger.warning("Caesar server is unreachable, could not deactivate car in db")
-                    self.status_led.color = StatusLED.ORANGE
-                    update_thread = Thread(target=self.send_updates)
-                    update_thread.start()
-                    self.receive_commands()
-                    update_thread.join()
-                    self.status_led.color = StatusLED.PINK
+                for sock in self.sockets:
+                    sock.cancel()
+                    message_socket = sock.get_message_socket()
+                    if message_socket is not None:
+                        self.message_socket = message_socket
+                        success = self.message_socket.authenticate(self.password)
+
+                for thread in threads:
+                    thread.join()
+
+                if success:
+                    self.__run_session()
             except Exception as e:
                 self.logger.warning(f'Exception happened during execution: {e}')
                 self.is_connection_alive = False
             finally:
-                try:
-                    self.logger.debug('Closing connections')
-                    self.message_socket.close()
-                except:
-                    pass
+                self.logger.debug('Closing connections')
+                self.message_socket.close()
 
-        self.logger.debug('Closing main socket before exiting')
-        try:
-            self.controllers.line_sensor.finish()
-            self.lan_socket.close()
-        except:
-            pass
+        self.logger.debug('Closing main sockets before exiting')
+        self.controllers.line_sensor.finish()
+        for sock in self.sockets:
+            sock.close()
 
 # next line turns off the system how it should, however for convenience reasons it is commented out during development
         # run(COMMAND_POWEROFF, shell=True)
@@ -278,7 +199,7 @@ class RcCar:
     def receive_commands(self) -> None:
 
         while True:
-            data = self.message_socket.recv(1024).decode()
+            data = self.message_socket.recv().decode()
             if not data:
                 self.is_connection_alive = False
                 break
