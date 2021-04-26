@@ -69,6 +69,7 @@ class RcCar:
         self.is_connection_alive = False
 
         self.status_led = StatusLED(19, 16)
+        self.modify_request = None
 
         with open(CONFIG_FILE, 'r') as f:
             config = load(f)
@@ -146,14 +147,12 @@ class RcCar:
 
         if default_data['old_password'] == self.password:
             self.logger.info("Config modified successfully")
-            message = dumps({MODIFY_REQUEST: True}) + '\n'
+            self.modify_request = True
             with open('config.json', 'w') as f:
                 dump(config, f)
         else:
             self.logger.info("Config modification failed. Wrong password was provided.")
-            message = dumps({MODIFY_REQUEST: False}) + '\n'
-
-        self.message_socket.sendall(message.encode())
+            self.modify_request = False
 
     def run(self) -> None:
 
@@ -219,7 +218,11 @@ class RcCar:
     def send_updates(self) -> None:
 
         while self.is_connection_alive:
-            message = dumps(self.controller.get_values()) + '\n'
+            data = self.controller.get_values()
+            if self.modify_request is not None:
+                data[MODIFY_REQUEST] = self.modify_request
+                self.modify_request = None
+            message = dumps(data) + '\n'
             self.message_socket.sendall(message.encode())
             sleep(0.05)
 
