@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PATH_TO_ROOT_DIR=/home/alex/rc_controller_software
+
 files=(
   "controller.py"
   "rc_software.py"
@@ -20,7 +22,7 @@ exit_notify() {
   exit
 }
 
-cd ..
+cd "$PATH_TO_ROOT_DIR" || exit_notify "Changing directory failed"
 mkdir raspberrypi_rc_car
 cd raspberrypi_rc_car || exit_notify "Changing directory failed"
 mkdir controllers
@@ -33,8 +35,13 @@ for file in "${files[@]}"; do
   cp "src/$file" "raspberrypi_rc_car/$file"
 done
 
+old_path=$( (echo "$PATH_TO_ROOT_DIR/src"|sed -r 's/([\$\.\*\/\[\\^])/\\\1/g'|sed 's/[]]/\[]]/g')>&1)
+new_path=$( (echo '/opt/raspberrypi_rc_car'|sed -r 's/([\$\.\*\/\[\\^])/\\\1/g'|sed 's/[]]/\[]]/g')>&1)
+sed -i -e "s/$old_path/$new_path/g" "$PATH_TO_ROOT_DIR/raspberrypi_rc_car/rc_software.py" || exit_notify "Editing path to config file failed."
+
 tar -czvf raspberrypi_rc_car.tar.gz raspberrypi_rc_car >/dev/null 2>&1 || exit_notify "Compressing directory failed"
 password=$(cat < passwd)
-sh/upload.sh "$password"
+sh/upload.sh "$password" raspberrypi_rc_car.tar.gz
+sh/upload.sh "$password" sh/installScript.sh
 rm -r raspberrypi_rc_car
 rm raspberrypi_rc_car.tar.gz
