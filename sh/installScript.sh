@@ -41,7 +41,11 @@ log "Done.\n"
 cd /opt/raspberrypi_rc_car >/dev/null 2>&1 || exit_notify "Changing directory failed. $TRY_ROOT"
 
 # SETTING UP CRONTAB
-#sudo echo "@reboot sudo python3 /opt/raspberrypi_rc_car/rc_software.py &" | sudo crontab - >/dev/null 2>&1 || exit_notify "Setting up the cronjob failed. $TRY_ROOT"
+sudo echo "@reboot sudo python3 /opt/raspberrypi_rc_car/rc_software.py &" | sudo crontab - >/dev/null 2>&1 || exit_notify "Setting up the cronjob failed. $TRY_ROOT"
+
+# INSTALLING PYTHON PACKAGES
+sudo pip3 install --upgrade pip >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+sudo pip3 install -r requirements.txt >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
 
 # SETTING UP BLUETOOTH
 log "Setting up bluetooth.."

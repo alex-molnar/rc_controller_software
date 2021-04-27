@@ -39,6 +39,8 @@ for file in "${files[@]}"; do
   cp "src/$file" "raspberrypi_rc_car/$file"
 done
 
+cp "requirements.txt" "raspberrypi_rc_car/requirements.txt"
+
 old_path=$( (echo "$PATH_TO_ROOT_DIR/src"|sed -r 's/([\$\.\*\/\[\\^])/\\\1/g'|sed 's/[]]/\[]]/g')>&1)
 new_path=$( (echo '/opt/raspberrypi_rc_car'|sed -r 's/([\$\.\*\/\[\\^])/\\\1/g'|sed 's/[]]/\[]]/g')>&1)
 sed -i -e "s/$old_path/$new_path/g" "$PATH_TO_ROOT_DIR/raspberrypi_rc_car/rc_software.py" || exit_notify "Editing path to config file failed."

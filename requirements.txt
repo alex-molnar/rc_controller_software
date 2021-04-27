@@ -1,0 +1,3 @@
+PyBluez
+requests
+RPi.GPIO
