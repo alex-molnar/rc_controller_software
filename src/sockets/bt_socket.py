@@ -8,7 +8,7 @@ from multiprocessing import Queue
 
 from sockets.socket_base import SocketBase, ADDR_ANY, PORT_ANY
 
-COMMAND_TURN_BLUETOOTH_DISCOVERY_ON = '../sh/bt_disc_on.sh >/dev/null 2>&1'
+COMMAND_TURN_BLUETOOTH_DISCOVERY_ON = '/home/alex/rc_controller_software/src/sh/bt_disc_on.sh >/dev/null 2>&1'
 UUID = '94f39d29-7d6d-583a-973b-fba39e49d4ee'
 BT_NAME = 'RC_car_raspberrypi'
 
