@@ -1,8 +1,7 @@
 from collections import defaultdict
 from logging import getLogger
-from typing import Optional
 
-from gpiozero import DistanceSensor
+from controllers.gpio.distance_sensor import DistanceSensor
 from controllers.gpio.buzzer import Buzzer
 from controllers.lighting import Lights
 from controllers.motor import Motor
@@ -15,7 +14,8 @@ SPEED = 'speed'
 
 class Controller:
     """
-    Class that responsible for the functionality of the car. Holds together the components needed to controll the car, and provides a nice, easy-to-use interface.
+    Class that responsible for the functionality of the car. Holds together the components needed to controll the car,
+    and provides a nice, easy-to-use interface.
 
     :examples:
     >>> control = Controller()
@@ -29,8 +29,6 @@ class Controller:
         Initialises the GPIO components, and other control components
 
         :Assumptions: None
-
-        :param pin_numbering: ignored, added so it is possible to parse the GPIO pins from file in the future
         """
         self.buzzer = Buzzer(26)
         self.lights = Lights([4, 17, 18, 27], [24, 25], 22, 23)
@@ -62,7 +60,7 @@ class Controller:
         """
         Sets the state of the car, and changes behavior if possible, or necessary.
 
-        :Assumpitons: None
+        :Assumptions: None
 
         :param data: Contains the data of the user input
 
@@ -86,7 +84,7 @@ class Controller:
         for key, value in self.lights.get_data():
             self.states[key] = value
 
-        distance = round(self.distance_sensor.distance * 100 - 10, 2)
+        distance = round(self.distance_sensor.distance - 10, 2)
         self.states[DISTANCE] = distance
         self.motor.distance = distance
         self.states[SPEED] = round(self.motor.current_speed * 3.6 * 10, 2)
