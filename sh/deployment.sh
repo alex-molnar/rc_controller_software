@@ -5,6 +5,9 @@ PATH_TO_ROOT_DIR=/home/alex/rc_controller_software
 files=(
   "controller.py"
   "rc_software.py"
+  "sockets/socket_base.py"
+  "sockets/lan_socket.py"
+  "sockets/bt_socket.py"
   "controllers/motor.py"
   "controllers/lighting.py"
   "controllers/gpio/buzzer.py"
@@ -27,6 +30,7 @@ mkdir raspberrypi_rc_car
 cd raspberrypi_rc_car || exit_notify "Changing directory failed"
 mkdir controllers
 mkdir sh
+mkdir sockets
 cd controllers || exit_notify "Changing directory failed"
 mkdir gpio
 cd ../..
