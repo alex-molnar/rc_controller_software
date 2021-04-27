@@ -84,7 +84,13 @@ class RcCar:
         for sock in sockets:
             sock.setup_connections()
         self.sockets: List[SocketBase] = list(filter(lambda s: s.is_active, sockets))
-        self.color = StatusLED.PINK if len(sockets) == len(self.sockets) else StatusLED.CYAN
+
+        if len(self.sockets) == 0:
+            self.color = StatusLED.RED
+        elif len(self.sockets) == len(sockets):
+            self.color = StatusLED.PINK
+        else:
+            self.color = StatusLED.CYAN
         self.status_led.color = self.color
 
         post(CAESAR_URL.format('update'), params={
