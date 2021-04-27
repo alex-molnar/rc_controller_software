@@ -2,7 +2,7 @@ from collections import defaultdict
 from logging import getLogger
 from typing import Optional
 
-# from gpiozero import DistanceSensor
+from gpiozero import DistanceSensor
 from controllers.gpio.buzzer import Buzzer
 from controllers.lighting import Lights
 from controllers.motor import Motor
@@ -34,7 +34,7 @@ class Controller:
         """
         self.buzzer = Buzzer(26)
         self.lights = Lights([4, 17, 18, 27], [24, 25], 22, 23)
-        # self.distance_sensor = DistanceSensor(echo=20, trigger=5)
+        self.distance_sensor = DistanceSensor(echo=20, trigger=3)
         self.line_sensor = LineSensor(21, lambda: self.motor.set_line(True), lambda: self.motor.set_line(False))
         self.motor = Motor([7, 8], [9, 10])
 
@@ -86,8 +86,8 @@ class Controller:
         for key, value in self.lights.get_data():
             self.states[key] = value
 
-        distance = 69  # round(self.distance_sensor.distance * 100, 2)
-        self.states[DISTANCE] = 69
+        distance = round(self.distance_sensor.distance * 100 - 10, 2)
+        self.states[DISTANCE] = distance
         self.motor.distance = distance
         self.states[SPEED] = round(self.motor.current_speed * 3.6 * 10, 2)
 
