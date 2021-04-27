@@ -17,6 +17,10 @@ class GeneralPurposeOutputDevice:
         self._device.stop()
 
     @property
+    def is_active(self) -> bool:
+        return not self._value == 0
+
+    @property
     def value(self) -> float:
         return self._value
 
@@ -27,8 +31,14 @@ class GeneralPurposeOutputDevice:
         self._device.ChangeDutyCycle(self._value * 100)
         self._is_active_background = False
 
-    def on(self) -> None:
-        self.value = self._max_value
+    def on(self, value: float = 1) -> None:
+        self.value = value
 
     def off(self) -> None:
         self.value = 0
+
+    def toggle(self, value: float = 1) -> None:
+        if self.is_active:
+            self.off()
+        else:
+            self.on(value)

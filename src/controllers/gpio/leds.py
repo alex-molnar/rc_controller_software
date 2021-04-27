@@ -22,11 +22,11 @@ class LED(GeneralPurposeOutputDevice):
 
     def blink(
         self,
-        times: int = 1,
-        on_time: float = 0.5,
-        off_time: float = 0.5,
-        fade_in_time: float = 1,
-        fade_out_time: float = 1,
+        times: int = INF,
+        on_time: float = 0.3,
+        off_time: float = 0.3,
+        fade_in_time: float = 0.5,
+        fade_out_time: float = 0.5,
         non_blocking: bool = False
     ) -> None:
         assert times == self.INF or 1 <= times

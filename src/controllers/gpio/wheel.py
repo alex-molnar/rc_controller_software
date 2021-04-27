@@ -9,11 +9,11 @@ class Wheel:
 
     def forward(self, speed: float = 1) -> None:
         self._backward_device.off()
-        self._forward_device.value = speed
+        self._forward_device.on(speed)
 
     def backward(self, speed: float = 1) -> None:
         self._forward_device.off()
-        self._backward_device.value = speed
+        self._backward_device.on(speed)
 
     def stop(self) -> None:
         self._forward_device.off()
