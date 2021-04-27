@@ -39,8 +39,9 @@ class LANSocket(SocketBase):
             self.sock.listen()
             self.sock.settimeout(1)
             self.is_active = True
-        except socket_error:
+        except socket_error as sock_err:
             self.logger.warning('A socket exception happened during LAN setup')
+            self.logger.warning(sock_err)
             self.is_active = False
         except Timeout:
             self.logger.warning('Caesar server is unreachable')

@@ -93,14 +93,17 @@ class RcCar:
             self.color = StatusLED.CYAN
         self.status_led.color = self.color
 
-        post(CAESAR_URL.format('update'), params={
-            'id': self.db_id,
-            'name': self.db_name,
-            'ip': RcCar.__get_ip(),
-            'port': self.sockets[0].sock.getsockname()[1],
-            'ssid': RcCar.__get_ssid(),
-            'available': 1
-        }, timeout=NETWORK_TIMEOUT_TOLERANCE)
+        try:
+            post(CAESAR_URL.format('update'), params={
+                'id': self.db_id,
+                'name': self.db_name,
+                'ip': RcCar.__get_ip(),
+                'port': self.sockets[0].sock.getsockname()[1],
+                'ssid': RcCar.__get_ssid(),
+                'available': 1
+            }, timeout=NETWORK_TIMEOUT_TOLERANCE)
+        except Timeout:
+            self.logger.warning('Caesar Server unavailable, could not set ip and port')
 
         self.message_queue = Queue()
         self.message_socket: SocketBase
@@ -164,7 +167,6 @@ class RcCar:
             self.modify_request = False
 
     def run(self) -> None:
-
         while self.power_on:
             self.__activate()
             try:

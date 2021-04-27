@@ -38,9 +38,10 @@ class BTSocket(SocketBase):
                 service_classes=[UUID, SERIAL_PORT_CLASS],
                 profiles=[SERIAL_PORT_PROFILE]
             )
-        except BluetoothError:
+        except BluetoothError as bt_err:
             self.is_active = False
             self.logger.warning('Bluetooth exception happened during setup')
+            self.logger.warning(bt_err)
         except Exception as e:
             self.is_active = False
             self.logger.warning(f'Some other exception happened during bluetooth setup: {e}')
