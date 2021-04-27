@@ -13,6 +13,7 @@ from requests.exceptions import Timeout
 from collections import defaultdict
 from typing import List
 from multiprocessing import Queue
+from queue import Empty
 from socket import socket, AF_INET, SOCK_DGRAM
 import logging
 
@@ -85,28 +86,32 @@ class RcCar:
             sock.setup_connections()
         self.sockets: List[SocketBase] = list(filter(lambda s: s.is_active, sockets))
 
+        try:
+            post(CAESAR_URL.format('update'), params={
+                'id': self.db_id,
+                'name': self.db_name,
+                'ip': RcCar.__get_ip(),
+                'port': sockets[0].sock.getsockname()[1],
+                'ssid': RcCar.__get_ssid(),
+                'available': 1
+            }, timeout=NETWORK_TIMEOUT_TOLERANCE)
+        except Timeout:
+            self.logger.warning('Caesar Server unavailable, could not set ip and port')
+        except IndexError:
+            self.logger.warning('The initialization of the LAN socket was unsuccessful, could not set ip, port')
+
         if len(self.sockets) == 0:
             self.color = StatusLED.RED
+            self.logger.error('There is no instance of any socket available returning now')
         elif len(self.sockets) == len(sockets):
             self.color = StatusLED.PINK
         else:
             self.color = StatusLED.CYAN
         self.status_led.color = self.color
 
-        try:
-            post(CAESAR_URL.format('update'), params={
-                'id': self.db_id,
-                'name': self.db_name,
-                'ip': RcCar.__get_ip(),
-                'port': self.sockets[0].sock.getsockname()[1],
-                'ssid': RcCar.__get_ssid(),
-                'available': 1
-            }, timeout=NETWORK_TIMEOUT_TOLERANCE)
-        except Timeout:
-            self.logger.warning('Caesar Server unavailable, could not set ip and port')
-
         self.message_queue = Queue()
         self.message_socket: SocketBase
+        self.message_socket = None
 
     @staticmethod
     def __get_ip() -> str:
@@ -120,19 +125,19 @@ class RcCar:
     def __get_ssid() -> str:
         return check_output(COMMAND_GET_NETWORK_ADDRESS).split(b'"')[1].decode()
 
-    def __activate(self):
+    def __activate(self) -> None:
         try:
             post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
         except Timeout:
             self.logger.warning("Caesar server is unreachable, could not activate car in db")
 
-    def __deactivate(self):
+    def __deactivate(self) -> None:
         try:
             post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
         except Timeout:
             self.logger.warning("Caesar server is unreachable, could not deactivate car in db")
 
-    def __run_session(self):
+    def __run_session(self) -> None:
         self.__deactivate()
         self.status_led.color = StatusLED.ORANGE
         self.is_connection_alive = True
@@ -143,6 +148,26 @@ class RcCar:
 
         update_thread.join()
         self.status_led.color = self.color
+
+    def __finish(self) -> None:
+        self.logger.debug('Closing main sockets before exiting')
+        self.controller.line_sensor.finish()
+        for sock in self.sockets:
+            sock.close()
+
+    # next line turns off the system how it should, however for convenience reasons it is commented out during development
+    #     run(COMMAND_RESTART if self.restart else COMMAND_POWEROFF, shell=True)
+
+    def set_message_socket(self) -> bool:
+        success = False
+
+        for sock in self.sockets:
+            sock.cancel()
+            message_socket = sock.get_message_socket()
+            if message_socket is not None:
+                self.message_socket = message_socket
+                success = self.message_socket.authenticate(self.password)
+        return success
 
     def __modify_config(self, data: dict) -> None:
         default_data = defaultdict(lambda: DEFAULT, data)
@@ -175,36 +200,26 @@ class RcCar:
                 for thread in threads:
                     thread.start()
 
-                self.message_queue.get()
+                self.message_queue.get(timeout=60)
 
-                success = False
-
+                if self.set_message_socket():
+                    self.power_on = True
+                    self.__run_session()
+            except Empty:
+                self.power_on = False
+                self.is_connection_alive = False
                 for sock in self.sockets:
                     sock.cancel()
-                    message_socket = sock.get_message_socket()
-                    if message_socket is not None:
-                        self.message_socket = message_socket
-                        success = self.message_socket.authenticate(self.password)
-
-                for thread in threads:
-                    thread.join()
-
-                if success:
-                    self.__run_session()
+                self.logger.error('No connection has been made for 1 minute. turning off for power saving reasons.')
             except Exception as e:
                 self.logger.warning(f'Exception happened during execution: {e}')
                 self.is_connection_alive = False
             finally:
                 self.logger.debug('Closing connections')
-                self.message_socket.close()
+                if self.message_socket is not None:
+                    self.message_socket.close()
 
-        self.logger.debug('Closing main sockets before exiting')
-        self.controller.line_sensor.finish()
-        for sock in self.sockets:
-            sock.close()
-
-# next line turns off the system how it should, however for convenience reasons it is commented out during development
-#         run(COMMAND_RESTART if self.restart else COMMAND_POWEROFF, shell=True)
+        self.__finish()
 
     def receive_commands(self) -> None:
 
