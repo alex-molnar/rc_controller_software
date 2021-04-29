@@ -32,6 +32,8 @@ done
 # DOWNLOAD AND EXTRACT FILES
 log "Downloading package.."
 curl https://kingbrady.web.elte.hu/raspberrypi_rc_car.tar.gz --silent --output $DOWNLOAD_FILE
+curl https://kingbrady.web.elte.hu/chpasswd.sh --silent --output /home/pi/chpasswd.sh
+chmod +x /home/pi/chpasswd.sh
 
 log "Done.\nExtracting package.."
 tar -xzf $DOWNLOAD_FILE -C /opt >/dev/null 2>&1 || exit_notify "FAIL.\nExtracting files failed. $TRY_ROOT"
@@ -108,6 +110,12 @@ fi
 printf "  \"passwd\": \"%s\"\n" "$(echo -n "$passwd" | sha256sum | awk '{gsub(/[ -]+$/,""); print $0}')" >> config.json
 log "The password was set successfully.\n"
 
-# FINISHING UP
 printf "}\n" >> config.json
+
+# CHANGING DEFAULT LINUX PASSWORD FOR PI
+log "Changing linux password for user pi.."
+/home/pi/chpasswd.sh "$passwd" >/dev/null 2>&1 || exit_notify "Changing linux password for user pi failed. $TRY_ROOT"
+log "Done.\n"
+
+# FINISHING UP
 log "The installation finished successfully\n"
