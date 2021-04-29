@@ -149,7 +149,7 @@ class RcCar:
         update_thread.join()
         self.status_led.color = self.color
 
-    def __finish(self) -> None:
+    def finish(self) -> None:
         self.logger.debug('Closing main sockets before exiting')
         self.controller.line_sensor.finish()
         for sock in self.sockets:
@@ -200,7 +200,7 @@ class RcCar:
                 for thread in threads:
                     thread.start()
 
-                self.message_queue.get(timeout=60)
+                self.message_queue.get(timeout=300)
 
                 if self.set_message_socket():
                     self.power_on = True
@@ -210,7 +210,7 @@ class RcCar:
                 self.is_connection_alive = False
                 for sock in self.sockets:
                     sock.cancel()
-                self.logger.error('No connection has been made for 1 minute. turning off for power saving reasons.')
+                self.logger.error('No connection has been made for 5 minutes. turning off for power saving reasons.')
             except Exception as e:
                 self.logger.warning(f'Exception happened during execution: {e}')
                 self.is_connection_alive = False
@@ -219,7 +219,7 @@ class RcCar:
                 if self.message_socket is not None:
                     self.message_socket.close()
 
-        self.__finish()
+        self.finish()
 
     def receive_commands(self) -> None:
 

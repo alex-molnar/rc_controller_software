@@ -18,6 +18,7 @@ log() {
 DOWNLOAD_FILE=rc_car_curled.tar.gz
 BLUETOOTH_NAME=RC_car_raspberrypi
 TRY_ROOT="Try to run the script with root permissions!"
+VERSION=0
 
 silent=false
 default_inputs=false
@@ -30,24 +31,31 @@ for switch in "$@"; do
 done
 
 # DOWNLOAD AND EXTRACT FILES
-log "Downloading package.."
+log "Downloading packages.."
 curl https://kingbrady.web.elte.hu/raspberrypi_rc_car.tar.gz --silent --output $DOWNLOAD_FILE
+curl "https://kingbrady.web.elte.hu/raspberrypi_rc_car_packages-$VERSION.tar.gz" --silent --output raspberrypi_rc_car_packages.tar.gz
 curl https://kingbrady.web.elte.hu/chpasswd.sh --silent --output /home/pi/chpasswd.sh
 chmod +x /home/pi/chpasswd.sh
 
-log "Done.\nExtracting package.."
-tar -xzf $DOWNLOAD_FILE -C /opt >/dev/null 2>&1 || exit_notify "FAIL.\nExtracting files failed. $TRY_ROOT"
+log "Done.\nExtracting packages.."
+tar xzf $DOWNLOAD_FILE -C /opt >/dev/null 2>&1 || exit_notify "FAIL.\nExtracting files failed. $TRY_ROOT"
+sudo python3 -m pip install raspberrypi_rc_car_packages.tar.gz  >/dev/null 2>&1
 rm -f $DOWNLOAD_FILE
+rm -f raspberrypi_rc_car_packages.tar.gz
 log "Done.\n"
 
 cd /opt/raspberrypi_rc_car >/dev/null 2>&1 || exit_notify "Changing directory failed. $TRY_ROOT"
 
 # SETTING UP CRONTAB
+log "Setting up cronjob.."
 sudo echo "@reboot sudo python3 /opt/raspberrypi_rc_car/rc_software.py &" | sudo crontab - >/dev/null 2>&1 || exit_notify "Setting up the cronjob failed. $TRY_ROOT"
+log "Done.\n"
 
 # INSTALLING PYTHON PACKAGES
+log "Installing necessary python packages.."
 sudo pip3 install --upgrade pip >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
 sudo pip3 install -r requirements.txt >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+log "Done.\n"
 
 # SETTING UP BLUETOOTH
 log "Setting up bluetooth.."
@@ -118,4 +126,5 @@ log "Changing linux password for user pi.."
 log "Done.\n"
 
 # FINISHING UP
+rm -f /home/pi/chpasswd.sh
 log "The installation finished successfully\n"
