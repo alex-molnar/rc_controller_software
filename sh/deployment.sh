@@ -50,6 +50,7 @@ esac
 
 version="$major.$minor.$continuous"
 printf "%s" "$version"  > VERSION.txt
+curl --silent -X POST -F "version=$version" https://kingbrady.web.elte.hu/rc_car/set_version.php
 
 printf "Done.\nCreating packages [#         ]\n"
 

@@ -18,7 +18,7 @@ log() {
 DOWNLOAD_FILE=rc_car_curled.tar.gz
 BLUETOOTH_NAME=RC_car_raspberrypi
 TRY_ROOT="Try to run the script with root permissions!"
-VERSION=0
+VERSION=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
 
 silent=false
 default_inputs=false
