@@ -16,6 +16,7 @@ log() {
 }
 
 DOWNLOAD_FILE=rc_car_curled.tar.gz
+DOWNLOAD_FILE_PACKAGES=raspberrypi_rc_car_packages.tar.gz
 BLUETOOTH_NAME=RC_car_raspberrypi
 TRY_ROOT="Try to run the script with root permissions!"
 VERSION=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
@@ -30,21 +31,25 @@ for switch in "$@"; do
   esac
 done
 
-# DOWNLOAD AND EXTRACT FILES
+# DOWNLOAD FILES
 log "Downloading packages.."
 curl https://kingbrady.web.elte.hu/raspberrypi_rc_car.tar.gz --silent --output $DOWNLOAD_FILE
-curl "https://kingbrady.web.elte.hu/raspberrypi_rc_car_packages-$VERSION.tar.gz" --silent --output raspberrypi_rc_car_packages.tar.gz
+curl "https://kingbrady.web.elte.hu/raspberrypi_rc_car_packages-$VERSION.tar.gz" --silent --output $DOWNLOAD_FILE_PACKAGES
 curl https://kingbrady.web.elte.hu/chpasswd.sh --silent --output /home/pi/chpasswd.sh
 chmod +x /home/pi/chpasswd.sh
 
+# EXTRACT FILES
 log "Done.\nExtracting packages.."
 tar xzf $DOWNLOAD_FILE -C /opt >/dev/null 2>&1 || exit_notify "FAIL.\nExtracting files failed. $TRY_ROOT"
-sudo python3 -m pip install raspberrypi_rc_car_packages.tar.gz  >/dev/null 2>&1
+sudo python3 -m pip install $DOWNLOAD_FILE_PACKAGES  >/dev/null 2>&1
 rm -f $DOWNLOAD_FILE
-rm -f raspberrypi_rc_car_packages.tar.gz
+rm -f $DOWNLOAD_FILE_PACKAGES
 log "Done.\n"
 
 cd /opt/raspberrypi_rc_car >/dev/null 2>&1 || exit_notify "Changing directory failed. $TRY_ROOT"
+sudo chmod +x sh/upload.sh
+sed -i 's/\r$//' sh/upload.sh
+printf "%s" "$VERSION" > VERSION.txt
 
 # SETTING UP CRONTAB
 log "Setting up cronjob.."

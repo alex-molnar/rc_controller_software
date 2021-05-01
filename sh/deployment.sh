@@ -6,6 +6,7 @@ files=(
   "controller.py"
   "rc_software.py"
   "sh/bt_disc_on.sh"
+  "sh/update.sh"
 )
 
 exit_notify() {
@@ -61,6 +62,7 @@ sed -i -e "s/$old_path/$new_path/g" "$PATH_TO_ROOT_DIR/src/sockets/bt_socket.py"
 sed -i -e "s/VERSION=0/VERSION='$version'/g" sh/installScript.sh
 sed -i 's/\r$//' sh/installScript.sh
 sed -i 's/\r$//' sh/chpasswd.sh
+sed -i 's/\r$//' src/sh/update.sh
 
 tar czf raspberrypi_rc_car.tar.gz raspberrypi_rc_car >/dev/null 2>&1 || exit_notify "Compressing directory failed"
 
