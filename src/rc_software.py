@@ -32,13 +32,11 @@ GOOGLE_PUBLIC_DNS = '8.8.8.8'
 
 COMMAND_GET_NETWORK_ADDRESS = ['sudo', 'iwgetid']
 COMMAND_POWEROFF = 'sudo poweroff'
-COMMAND_RESTART = 'sudo reboot'
 
 NETWORK_TIMEOUT_TOLERANCE = 1
 
 CONFIG_FILE = 'config.json'
 POWEROFF_MESSAGE = 'POWEROFF'
-RESTART_MESSAGE = 'RESTART'
 DEFAULT = 'default'
 MODIFY_REQUEST = 'modify'
 
@@ -73,7 +71,6 @@ class RcCar:
 
         self.status_led = StatusLED(19, 16)
         self.modify_request = None
-        self.restart = False
 
         with open(CONFIG_FILE, 'r') as f:
             config = load(f)
@@ -156,7 +153,7 @@ class RcCar:
             sock.close()
 
     # next line turns off the system how it should, however for convenience reasons it is commented out during development
-    #     run(COMMAND_RESTART if self.restart else COMMAND_POWEROFF, shell=True)
+    #     run(COMMAND_POWEROFF, shell=True)
 
     def set_message_socket(self) -> bool:
         success = False
@@ -228,10 +225,9 @@ class RcCar:
             if not data:
                 self.is_connection_alive = False
                 break
-            elif data == POWEROFF_MESSAGE or data == RESTART_MESSAGE:
+            elif data == POWEROFF_MESSAGE:
                 self.logger.info(f'{data} request received')
                 self.power_on = False
-                self.restart = data == RESTART_MESSAGE
             else:
                 try:
                     loaded_data = loads(data)
