@@ -27,7 +27,7 @@ TRY_ROOT="Try to run the script with root permissions!"
 DOWNLOAD_FILE=rc_car_curled.tar.gz
 DOWNLOAD_FILE_PACKAGES=raspberrypi_rc_car_packages.tar.gz
 latest_version=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
-installed_version=$(cat < ../VERSION.txt)
+installed_version=$(cat < /opt/raspberrypi_rc_car/VERSION.txt)
 
 sleep 2
 if [ "$latest_version" == "$installed_version" ]; then
