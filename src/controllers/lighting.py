@@ -54,7 +54,7 @@ class Lights:
             self.turn_right_indicator_on()
         elif self.indicator_state not in [HAZARD_ON, LEFT_ON] and data[L_INDICATOR]:
             self.turn_left_indicator_on()
-        elif not any([data[index] for index in [HAZARD_WARNING, R_INDICATOR, L_INDICATOR]]):
+        elif not any([data[index] for index in [HAZARD_WARNING, R_INDICATOR, L_INDICATOR]]) or (self.indicator_state == HAZARD_ON and not data[HAZARD_WARNING]):
             self.turn_indicators_off()
 
         if self.light_state and self.breaking != data[BACKWARD]:
@@ -87,6 +87,8 @@ class Lights:
         self.logger.debug('Hazard warning turned on')
         self.indicator_state = HAZARD_ON
         self.public_states[HAZARD_WARNING] = True
+        self.public_states[L_INDICATOR] = True
+        self.public_states[R_INDICATOR] = True
         self.right_indicator.off()
         self.left_indicator.off()
         self.right_indicator.blink(non_blocking=True)
