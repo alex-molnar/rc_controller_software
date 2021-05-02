@@ -60,10 +60,16 @@ class SocketBase:
         self.is_connection_alive = True
 
     def sendall(self, message: bytes) -> None:
-        self.sock.sendall(message)
+        try:
+            self.sock.sendall(message)
+        except (socket_error, BluetoothError):
+            pass
 
     def recv(self) -> bytes:
-        return self.sock.recv(RECV_MAX_BYTES)
+        try:
+            return self.sock.recv(RECV_MAX_BYTES)
+        except (socket_error, BluetoothError):
+            pass
 
     def close(self) -> None:
         try:
