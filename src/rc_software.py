@@ -8,10 +8,10 @@ from subprocess import run, check_output
 from time import sleep
 from datetime import datetime
 from threading import Thread
-from requests import post
-from requests.exceptions import Timeout
+from requests import get, post
+from requests.exceptions import RequestException
 from collections import defaultdict
-from typing import List
+from typing import List, Tuple, Optional
 from multiprocessing import Queue
 from queue import Empty
 from socket import socket, AF_INET, SOCK_DGRAM
@@ -32,6 +32,7 @@ GOOGLE_PUBLIC_DNS = '8.8.8.8'
 
 COMMAND_GET_NETWORK_ADDRESS = ['sudo', 'iwgetid']
 COMMAND_POWEROFF = 'sudo poweroff'
+COMMAND_UPDATE = 'sudo sh/update.sh &'
 
 NETWORK_TIMEOUT_TOLERANCE = 1
 
@@ -39,6 +40,9 @@ CONFIG_FILE = 'config.json'
 POWEROFF_MESSAGE = 'POWEROFF'
 DEFAULT = 'default'
 MODIFY_REQUEST = 'modify'
+UPDATE_REQUEST = 'update'
+OLD_VERSION = 'old_version'
+LATEST_VERSION = 'latest_version'
 
 
 class RcCar:
@@ -92,7 +96,7 @@ class RcCar:
                 'ssid': RcCar.__get_ssid(),
                 'available': 1
             }, timeout=NETWORK_TIMEOUT_TOLERANCE)
-        except Timeout:
+        except RequestException:
             self.logger.warning('Caesar Server unavailable, could not set ip and port')
         except IndexError:
             self.logger.warning('The initialization of the LAN socket was unsuccessful, could not set ip, port')
@@ -109,6 +113,8 @@ class RcCar:
         self.message_queue = Queue()
         self.message_socket: SocketBase
         self.message_socket = None
+        self.update = False
+        self.old_version, self.latest_version = self.check_for_updates()
 
     @staticmethod
     def __get_ip() -> str:
@@ -122,16 +128,27 @@ class RcCar:
     def __get_ssid() -> str:
         return check_output(COMMAND_GET_NETWORK_ADDRESS).split(b'"')[1].decode()
 
+    def check_for_updates(self) -> Tuple[Optional[str], Optional[str]]:
+        try:
+            with open('VERSION.txt', 'r') as f:
+                old_version = f.readline().strip()
+                latest_version = get(CAESAR_URL.format("get_version"))
+                self.logger.info(f'Found version: {old_version} Latest available: {latest_version.content.decode()}')
+                return old_version, latest_version.content.decode()
+        except RequestException:
+            self.logger.warning("Caesar server can't be reached. Could not look for updates.")
+        return None, None
+
     def __activate(self) -> None:
         try:
             post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
-        except Timeout:
+        except RequestException:
             self.logger.warning("Caesar server is unreachable, could not activate car in db")
 
     def __deactivate(self) -> None:
         try:
             post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
-        except Timeout:
+        except RequestException:
             self.logger.warning("Caesar server is unreachable, could not deactivate car in db")
 
     def __run_session(self) -> None:
@@ -153,7 +170,8 @@ class RcCar:
             sock.close()
 
     # next line turns off the system how it should, however for convenience reasons it is commented out during development
-    #     run(COMMAND_POWEROFF, shell=True)
+        run(COMMAND_UPDATE if self.update else COMMAND_POWEROFF, shell=True)
+        print("finished")
 
     def set_message_socket(self) -> bool:
         success = False
@@ -225,9 +243,10 @@ class RcCar:
             if not data:
                 self.is_connection_alive = False
                 break
-            elif data == POWEROFF_MESSAGE:
+            elif data == POWEROFF_MESSAGE or data == UPDATE_REQUEST:
                 self.logger.info(f'{data} request received')
                 self.power_on = False
+                self.update = data == UPDATE_REQUEST
             else:
                 try:
                     loaded_data = loads(data)
@@ -239,6 +258,8 @@ class RcCar:
                     self.logger.debug('JSON decode error happened. Message lost')
 
     def send_updates(self) -> None:
+        message = dumps({OLD_VERSION: self.old_version, LATEST_VERSION: self.latest_version}) + '\n'
+        self.message_socket.sendall(message.encode())
 
         while self.is_connection_alive:
             data = self.controller.get_values()

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 exit_notify() {
+  setup_gpio "19"
   printf "%b\nThe installation failed!\nClearing up and exiting" "$1"
   sleep 0.4
   printf "."
@@ -11,20 +12,32 @@ exit_notify() {
   exit
 }
 
-#cd raspberrypi_rc_car || exit_notify "Changing directory failed. $TRY_ROOT"
-installed_version=$(cat < ../VERSION.txt)
-latest_version=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
+setup_gpio() {
+  sudo echo "$1" > /sys/class/gpio/export
+  sudo echo "out" > "/sys/class/gpio/gpio$1/direction"
+  sudo echo "1" > "/sys/class/gpio/gpio$1/value"
+}
+
+teardown_gpio() {
+  sudo echo "0" > "/sys/class/gpio/gpio$1/value"
+  sudo echo "$1" > /sys/class/gpio/unexport
+}
+
 TRY_ROOT="Try to run the script with root permissions!"
 DOWNLOAD_FILE=rc_car_curled.tar.gz
 DOWNLOAD_FILE_PACKAGES=raspberrypi_rc_car_packages.tar.gz
+latest_version=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
+installed_version=$(cat < ../VERSION.txt)
 
-
-if [ "$installed_version" == "$latest_version" ]; then
+sleep 2
+if [ "$latest_version" == "$installed_version" ]; then
   printf "Already up to date!\n"
 else
   cd /home/pi || exit_notify "Changing directory failed. $TRY_ROOT"
+  sudo mv /opt/raspberrypi_rc_car/config.json config.json
   printf "Old version found: %s\nLatest version: %s\nUpdating now [          ]\n" "$installed_version" "$latest_version"
 
+  setup_gpio "16"
   while read -r p; do
     stats=(${p//./ })
     if [ "${stats[5]}" == "/opt/raspberrypi_rc_car/rc_software" ] || [ "${stats[6]}" == "/opt/raspberrypi_rc_car/rc_software" ]; then
@@ -47,6 +60,9 @@ else
 
   rm -f $DOWNLOAD_FILE
   rm -f $DOWNLOAD_FILE_PACKAGES
+  sudo mv config.json /opt/raspberrypi_rc_car/config.json
   printf "%s" "$latest_version" > /opt/raspberrypi_rc_car/VERSION.txt
-  printf "Done.\n"
+  printf "Done.\nTurning off now..\n"
+  teardown_gpio "16"
+  sudo poweroff
 fi
