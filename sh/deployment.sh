@@ -26,6 +26,7 @@ for file in "${files[@]}"; do
   cp "src/$file" "raspberrypi_rc_car/$file"
 done
 
+venv/bin/pip freeze > requirements.txt
 cp "requirements.txt" "raspberrypi_rc_car/requirements.txt"
 
 printf "Done.\nParsing files.."
