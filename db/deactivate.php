@@ -1,7 +1,7 @@
 <?php
 include("passwd.php");
 
-$id = $_GET["id"];
+$id = $_POST["id"];
 
 $sql = "UPDATE rc_connection SET available=0, time_stamp=:time_stamp WHERE id=:id";
 $params = ["id" => $id, "time_stamp" => date("Y-m-d H:i:s")];

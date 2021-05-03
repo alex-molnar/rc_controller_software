@@ -1,12 +1,12 @@
 <?php
 include("passwd.php");
 
-$id = $_GET["id"];
-$name = $_GET["name"];
-$ip = $_GET["ip"];
-$port = $_GET["port"];
-$ssid = $_GET["ssid"];
-$available = $_GET["available"] ? $_GET["available"] : 0;
+$id = $_POST["id"];
+$name = $_POST["name"];
+$ip = $_POST["ip"];
+$port = $_POST["port"];
+$ssid = $_POST["ssid"];
+$available = $_POST["available"] ? $_POST["available"] : 0;
 
 $sql = "UPDATE rc_connection SET name=:name, ip=INET_ATON(:ip), port=:port, ssid=:ssid, available=:available, time_stamp=:time_stamp WHERE id=:id";
 $params = [

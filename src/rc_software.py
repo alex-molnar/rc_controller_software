@@ -88,7 +88,7 @@ class RcCar:
         self.sockets: List[SocketBase] = list(filter(lambda s: s.is_active, sockets))
 
         try:
-            post(CAESAR_URL.format('update'), params={
+            post(CAESAR_URL.format('update'), data={
                 'id': self.db_id,
                 'name': self.db_name,
                 'ip': RcCar.__get_ip(),
@@ -141,13 +141,13 @@ class RcCar:
 
     def __activate(self) -> None:
         try:
-            post(CAESAR_URL.format('activate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
+            post(CAESAR_URL.format('activate'), data={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
         except RequestException:
             self.logger.warning("Caesar server is unreachable, could not activate car in db")
 
     def __deactivate(self) -> None:
         try:
-            post(CAESAR_URL.format('deactivate'), params={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
+            post(CAESAR_URL.format('deactivate'), data={'id': self.db_id}, timeout=NETWORK_TIMEOUT_TOLERANCE)
         except RequestException:
             self.logger.warning("Caesar server is unreachable, could not deactivate car in db")
 
@@ -170,8 +170,7 @@ class RcCar:
             sock.close()
 
     # next line turns off the system how it should, however for convenience reasons it is commented out during development
-        run(COMMAND_UPDATE if self.update else COMMAND_POWEROFF, shell=True)
-        print("finished")
+    #     run(COMMAND_UPDATE if self.update else COMMAND_POWEROFF, shell=True)
 
     def set_message_socket(self) -> bool:
         success = False
