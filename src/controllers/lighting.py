@@ -40,6 +40,7 @@ class Lights:
         self.indicator_state = INDICATORS_OFF
 
         self.breaking = False
+        self.break_light_value = 0
         self.logger = getLogger('rc_controller')
 
     def handle_lights(self, data: Dict[str, bool]) -> None:
@@ -57,9 +58,9 @@ class Lights:
         elif not any([data[index] for index in [HAZARD_WARNING, R_INDICATOR, L_INDICATOR]]) or (self.indicator_state == HAZARD_ON and not data[HAZARD_WARNING]):
             self.turn_indicators_off()
 
-        if self.light_state and self.breaking != data[BACKWARD]:
+        if self.breaking != data[BACKWARD]:
             for light in self.back_lights:
-                light.value = 1 if data[BACKWARD] else 0.1
+                light.value = 1 if data[BACKWARD] else self.break_light_value
             self.breaking = data[BACKWARD]
 
     def get_data(self) -> ItemsView[Any, bool]:
@@ -104,5 +105,6 @@ class Lights:
         self.left_indicator.off()
 
     def toggle_lights(self) -> None:
+        self.break_light_value = 0.1 if self.break_light_value == 0 else 0
         for light in [*self.front_lights, *self.back_lights]:
             light.toggle(1 if light in self.front_lights else 0.1)
