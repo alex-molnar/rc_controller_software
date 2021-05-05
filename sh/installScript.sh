@@ -15,11 +15,10 @@ log() {
   ! $silent && printf "%b" "$1"
 }
 
-DOWNLOAD_FILE=rc_car_curled.tar.gz
-DOWNLOAD_FILE_PACKAGES=raspberrypi_rc_car_packages.tar.gz
+DOWNLOAD_FILE=raspberrypi_rc_car.tar.gz
 BLUETOOTH_NAME=RC_car_raspberrypi
 TRY_ROOT="Try to run the script with root permissions!"
-VERSION=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
+version=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
 
 silent=false
 default_inputs=false
@@ -33,33 +32,31 @@ done
 
 # DOWNLOAD FILES
 log "Downloading packages.."
-curl https://kingbrady.web.elte.hu/raspberrypi_rc_car.tar.gz --silent --output $DOWNLOAD_FILE
-curl "https://kingbrady.web.elte.hu/raspberrypi_rc_car_packages-$VERSION.tar.gz" --silent --output $DOWNLOAD_FILE_PACKAGES
-curl https://kingbrady.web.elte.hu/chpasswd.sh --silent --output /home/pi/chpasswd.sh
-chmod +x /home/pi/chpasswd.sh
+curl "https://kingbrady.web.elte.hu/raspberrypi_rc_car-$version.tar.gz" --silent --output $DOWNLOAD_FILE
 
 # EXTRACT FILES
 log "Done.\nExtracting packages.."
 tar xzf $DOWNLOAD_FILE -C /opt >/dev/null 2>&1 || exit_notify "FAIL.\nExtracting files failed. $TRY_ROOT"
-sudo python3 -m pip install $DOWNLOAD_FILE_PACKAGES  >/dev/null 2>&1
 rm -f $DOWNLOAD_FILE
-rm -f $DOWNLOAD_FILE_PACKAGES
 log "Done.\n"
 
+mv "/opt/raspberrypi_rc_car-$version" /opt/raspberrypi_rc_car
 cd /opt/raspberrypi_rc_car >/dev/null 2>&1 || exit_notify "Changing directory failed. $TRY_ROOT"
-sudo chmod +x sh/upload.sh
-sed -i 's/\r$//' sh/upload.sh
-printf "%s" "$VERSION" > VERSION.txt
+sudo chmod +x sh/update.sh
+sudo sed -i 's/\r$//' sh/update.sh
+printf "%s" "$version" > VERSION.txt
 
 # SETTING UP CRONTAB
 log "Setting up cronjob.."
-sudo echo "@reboot sudo python3 /opt/raspberrypi_rc_car/rc_software.py &" | sudo crontab - >/dev/null 2>&1 || exit_notify "Setting up the cronjob failed. $TRY_ROOT"
+sudo echo "@reboot sudo /opt/raspberrypi_rc_car/bin/python /opt/raspberrypi_rc_car/rc_software.py" | sudo crontab - >/dev/null 2>&1 || exit_notify "Setting up the cronjob failed. $TRY_ROOT"
 log "Done.\n"
 
 # INSTALLING PYTHON PACKAGES
 log "Installing necessary python packages.."
-sudo pip3 install --upgrade pip >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
-sudo pip3 install -r requirements.txt >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+python3 -m venv venv
+venv/bin/pip install --upgrade pip >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+venv/bin/pip install -r requirements.txt >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+venv/bin/pip install "rc_packages-$version.tar.gz" >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
 log "Done.\n"
 
 # SETTING UP BLUETOOTH
@@ -125,11 +122,5 @@ log "The password was set successfully.\n"
 
 printf "}\n" >> config.json
 
-# CHANGING DEFAULT LINUX PASSWORD FOR PI
-log "Changing linux password for user pi.."
-/home/pi/chpasswd.sh "$passwd" >/dev/null 2>&1 || exit_notify "Changing linux password for user pi failed. $TRY_ROOT"
-log "Done.\n"
-
 # FINISHING UP
-rm -f /home/pi/chpasswd.sh
 log "The installation finished successfully\n"
