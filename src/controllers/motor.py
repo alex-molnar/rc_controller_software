@@ -61,7 +61,7 @@ class Motor:
         if detected:
             self.line_queue.put("detected")
         self.states[LINE] = detected
-        self.logger.info(f'Line {"" if detected else "un"}detected')
+        self.logger.debug(f'Line {"" if detected else "un"}detected')
 
     def auto_func_condition(self) -> bool:
         if self.state == DISTANCE_KEEPING:
