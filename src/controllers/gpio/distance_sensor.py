@@ -15,7 +15,7 @@ class DistanceSensor:
         setup(self.trigger, OUT)
         output(self.trigger, HIGH)
         sleep(2)
-        self._distance = 100.0
+        self._distance = 200.0
         self.logger = getLogger('rc_controller')
 
     @property
