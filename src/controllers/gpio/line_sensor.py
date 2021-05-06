@@ -5,20 +5,15 @@ from typing import Callable
 from RPi.GPIO import IN, setup as gpio_setup, input as gpio_input
 
 DETECTED = 0
-UNDETECTED = 1
 
 
 class LineSensor:
 
-    def __init__(self, pin: int, on_line_detected: Callable[[], None], on_line_undetected: Callable[[], None]):
+    def __init__(self, pin: int, on_line_changed: Callable[[bool], None]):
         gpio_setup(pin, IN)
         self.pin = pin
 
-        self.event_functions = {
-            DETECTED: on_line_detected,
-            UNDETECTED: on_line_undetected
-        }
-
+        self.on_line_changed = on_line_changed
         self.poll_process = Process(target=self.__poll)
         self.poll_process.start()
 
@@ -33,6 +28,6 @@ class LineSensor:
 
             if new_state != state:
                 state = new_state
-                self.event_functions[new_state]()
+                self.on_line_changed(state == DETECTED)
 
             sleep(0.01)

@@ -3,6 +3,8 @@ from time import sleep
 from collections import defaultdict
 from logging import getLogger
 from typing import List, Dict, ItemsView, Any
+from multiprocessing import Queue
+from queue import Empty
 
 from controllers.gpio.wheel import Wheel
 from controllers.gpio.servo import Servo
@@ -24,8 +26,6 @@ STOP = 0
 ACCELERATING = 1
 SPEEDING = 2
 BREAKING = -1
-DISTANCE_STATE = 3
-CONTAIN_STATE = 5
 
 
 class Motor:
@@ -34,10 +34,10 @@ class Motor:
     AUTO_SPEED = 0.3
     MAX_DISTANCE = 25
 
-    def __init__(self, right_wheel_pins: List[int], left_wheel_pins: List[int]):
+    def __init__(self, right_wheel_pins: List[int], left_wheel_pins: List[int], servo_pin: int):
         self.right_wheel = Wheel(*right_wheel_pins)
         self.left_wheel = Wheel(*left_wheel_pins)
-        self.servo = Servo(6)
+        self.servo = Servo(servo_pin)
 
         self.state = STOP
         self.direction = FORWARD
@@ -48,41 +48,56 @@ class Motor:
         self.can_accelerate = True
         self.can_break = True
 
-        self.keeping_distance = False
-        self.keep_contained = False
-
         self.distance = 100.0
 
         self.line_detected = False
+        self.line_queue = Queue()
         self.contain_state = STOP
 
         self.states = defaultdict(bool)
         self.logger = getLogger('rc_controller')
 
     def set_line(self, detected: bool) -> None:
-        self.line_detected = detected
+        if detected:
+            self.line_queue.put("detected")
         self.states[LINE] = detected
-        self.logger.debug(f'Line {"un" if detected else ""}detected')
+        self.logger.info(f'Line {"" if detected else "un"}detected')
+
+    def auto_func_condition(self) -> bool:
+        if self.state == DISTANCE_KEEPING:
+            return self. distance < self.MAX_DISTANCE
+        elif self.state == KEEP_CONTAINED:
+            try:
+                self.line_queue.get_nowait()
+                return True
+            except Empty:
+                return False
+
+    def clear_queue(self) -> None:
+        try:
+            while True:
+                self.line_queue.get_nowait()
+        except Empty:
+            pass
 
     def handle_motor_control(self, data: Dict[str, bool]) -> None:
         if data[DISTANCE_KEEPING]:
             if self.state == STOP:
                 self.logger.debug('Object avoidance started')
-                self.keeping_distance = True
+                self.state = DISTANCE_KEEPING
                 self.states[DISTANCE_KEEPING] = True
-                Thread(target=self.__keep_distance).start()
+                Thread(target=self.auto_functionality, args=(DISTANCE_KEEPING,)).start()
         elif data[KEEP_CONTAINED]:
             if self.state == STOP:
                 self.logger.debug('Stop on line started')
-                self.keep_contained = True
+                self.state = KEEP_CONTAINED
                 self.states[KEEP_CONTAINED] = True
-                Thread(target=self.__keep_contained).start()
-        elif self.state in [DISTANCE_STATE, CONTAIN_STATE]:
-            self.states[DISTANCE_KEEPING] = False
-            self.states[KEEP_CONTAINED] = False
-            self.keeping_distance = False
-            self.keep_contained = False
-            self.logger.debug('Automatic functionality stopped')
+                self.clear_queue()
+                Thread(target=self.auto_functionality, args=(KEEP_CONTAINED,)).start()
+        elif self.state in [DISTANCE_KEEPING, KEEP_CONTAINED]:
+            self.logger.debug(f'{self.state} functionality stopped')
+            self.states[self.state] = False
+            self.state = STOP
         else:
             self.__handle_speed(data)
             self.__handle_directions(data)
@@ -90,8 +105,7 @@ class Motor:
     def get_data(self) -> ItemsView[Any, bool]:
         return self.states.items()
 
-    def __keep_distance(self) -> None:
-        self.state = DISTANCE_STATE
+    def auto_functionality(self, auto_type: str) -> None:
         self.states[FORWARD] = True
         for state in [BACKWARD, RIGHT, LEFT, REVERSE]:
             self.states[state] = False
@@ -101,9 +115,9 @@ class Motor:
 
         turning_count = -1
 
-        while self.keeping_distance:
+        while self.states[auto_type]:
             sleep(0.05)
-            if self.distance < self.MAX_DISTANCE:
+            if self.auto_func_condition():
                 self.right_wheel.stop()
                 self.left_wheel.stop()
                 self.servo.forward()
@@ -138,6 +152,7 @@ class Motor:
                 self.servo.right()
                 self.left_wheel.forward(self.AUTO_SPEED)
                 self.right_wheel.forward(self.AUTO_SPEED)
+                self.clear_queue()
                 self.current_speed = self.AUTO_SPEED
                 turning_count = 1
             elif turning_count > 30:
@@ -156,73 +171,10 @@ class Motor:
         self.servo.forward()
         self.current_speed = 0
 
-    def __keep_contained(self) -> None:
-        self.state = CONTAIN_STATE
-        self.states[REVERSE] = False
-        right_turn = self.TURN_DIRECTION == RIGHT
-
-        if self.line_detected:
-            self.contain_state = STOP
-            if right_turn:
-                self.left_wheel.forward(self.TURN_FORWARD_SPEED)
-                self.right_wheel.backward(self.TURN_BACKWARD_SPEED)
-            else:
-                self.right_wheel.forward(self.TURN_FORWARD_SPEED)
-                self.left_wheel.backward(self.TURN_BACKWARD_SPEED)
-            self.states[self.TURN_DIRECTION] = True
-            sleep(2.5)
-        else:
-            self.contain_state = ACCELERATING
-            self.right_wheel.forward(self.AUTO_SPEED)
-            self.left_wheel.forward(self.AUTO_SPEED)
-            self.current_speed = self.AUTO_SPEED
-            self.states[FORWARD] = True
-
-        while self.keep_contained:
-            sleep(0.05)
-            if self.line_detected:
-                self.right_wheel.stop()
-                self.left_wheel.stop()
-                self.current_speed = 0
-                self.contain_state = STOP
-                self.states[FORWARD] = False
-
-                sleep(0.5)
-
-                if right_turn:
-                    self.left_wheel.forward(self.TURN_FORWARD_SPEED)
-                    self.right_wheel.backward(self.TURN_BACKWARD_SPEED)
-                else:
-                    self.right_wheel.forward(self.TURN_FORWARD_SPEED)
-                    self.left_wheel.backward(self.TURN_BACKWARD_SPEED)
-                self.states[self.TURN_DIRECTION] = True
-
-                sleep(2.5)
-
-            elif self.contain_state == STOP and not self.line_detected:
-                self.right_wheel.stop()
-                self.left_wheel.stop()
-                self.states[self.TURN_DIRECTION] = False
-
-                sleep(0.5)
-
-                self.contain_state = ACCELERATING
-                self.right_wheel.forward(self.AUTO_SPEED)
-                self.left_wheel.forward(self.AUTO_SPEED)
-                self.current_speed = self.AUTO_SPEED
-                self.states[FORWARD] = True
-
-        self.states[FORWARD] = False
-        self.states[self.TURN_DIRECTION] = False
-        self.state = STOP
-        self.left_wheel.stop()
-        self.right_wheel.stop()
-        self.current_speed = 0
-
     def __handle_speed(self, data: Dict[str, bool]) -> None:
         self.states[REVERSE] = data[REVERSE]
 
-        if self.state == STOP or (self.state in [DISTANCE_STATE, LINE_STATE] and data[FORWARD]):
+        if self.state == STOP or (self.state in [DISTANCE_KEEPING, KEEP_CONTAINED] and data[FORWARD]):
             if data[BACKWARD]:
                 self.states[BACKWARD] = True
             elif data[FORWARD]:
@@ -232,7 +184,7 @@ class Motor:
                 Thread(target=self.__acc).start()
             else:
                 self.states[BACKWARD] = False
-        elif self.state in [ACCELERATING, DISTANCE_STATE, LINE_STATE]:
+        elif self.state in [ACCELERATING, DISTANCE_KEEPING, KEEP_CONTAINED]:
             if data[BACKWARD]:
                 self.states[FORWARD] = False
                 self.states[BACKWARD] = True
