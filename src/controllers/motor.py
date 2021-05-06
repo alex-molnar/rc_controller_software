@@ -19,14 +19,12 @@ LINE = 'line'
 KEEP_CONTAINED = 'keep_contained'
 CHANGE_DIRECTION = 'change_direction'
 DISTANCE_KEEPING = 'distance_keeping'
-LINE_FOLLOWING = 'line_following'
 
 STOP = 0
 ACCELERATING = 1
 SPEEDING = 2
 BREAKING = -1
 DISTANCE_STATE = 3
-LINE_STATE = 4
 CONTAIN_STATE = 5
 
 
@@ -51,11 +49,9 @@ class Motor:
         self.can_break = True
 
         self.keeping_distance = False
-        self.following_line = False
         self.keep_contained = False
 
         self.distance = 100.0
-        self.distance_state = STOP
 
         self.line_detected = False
         self.contain_state = STOP
@@ -75,24 +71,16 @@ class Motor:
                 self.keeping_distance = True
                 self.states[DISTANCE_KEEPING] = True
                 Thread(target=self.__keep_distance).start()
-        elif data[LINE_FOLLOWING]:
-            if self.state == STOP:
-                self.logger.debug('Line following started')
-                self.following_line = True
-                self.states[LINE_FOLLOWING] = True
-                Thread(target=self.__follow_line).start()
         elif data[KEEP_CONTAINED]:
             if self.state == STOP:
                 self.logger.debug('Stop on line started')
                 self.keep_contained = True
                 self.states[KEEP_CONTAINED] = True
                 Thread(target=self.__keep_contained).start()
-        elif self.state in [DISTANCE_STATE, LINE_STATE, CONTAIN_STATE]:
+        elif self.state in [DISTANCE_STATE, CONTAIN_STATE]:
             self.states[DISTANCE_KEEPING] = False
-            self.states[LINE_FOLLOWING] = False
             self.states[KEEP_CONTAINED] = False
             self.keeping_distance = False
-            self.following_line = False
             self.keep_contained = False
             self.logger.debug('Automatic functionality stopped')
         else:
@@ -167,14 +155,6 @@ class Motor:
         self.right_wheel.stop()
         self.servo.forward()
         self.current_speed = 0
-
-    def __follow_line(self) -> None:
-        self.state = LINE_STATE
-        while self.following_line:
-            print(f"Following Line: {self.line_detected}")
-            sleep(0.5)
-        print('Not Following Line Anymore..')
-        self.__stop()
 
     def __keep_contained(self) -> None:
         self.state = CONTAIN_STATE
