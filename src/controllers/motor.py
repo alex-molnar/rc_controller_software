@@ -33,11 +33,8 @@ CONTAIN_STATE = 5
 class Motor:
 
     MAX_SPEED = 1
-    CONTAIN_SPEED = 0.3
-    TURN_FORWARD_SPEED = 0.5
-    TURN_BACKWARD_SPEED = 0.3
-    MAX_DISTANCE = 20
-    TURN_DIRECTION = RIGHT
+    AUTO_SPEED = 0.3
+    MAX_DISTANCE = 25
 
     def __init__(self, right_wheel_pins: List[int], left_wheel_pins: List[int]):
         self.right_wheel = Wheel(*right_wheel_pins)
@@ -107,62 +104,68 @@ class Motor:
 
     def __keep_distance(self) -> None:
         self.state = DISTANCE_STATE
-        self.states[REVERSE] = False
-        right_turn = self.TURN_DIRECTION == RIGHT
+        self.states[FORWARD] = True
+        for state in [BACKWARD, RIGHT, LEFT, REVERSE]:
+            self.states[state] = False
+        self.left_wheel.forward(self.AUTO_SPEED)
+        self.right_wheel.forward(self.AUTO_SPEED)
+        self.current_speed = self.AUTO_SPEED
 
-        if self.distance < self.MAX_DISTANCE:
-            self.distance_state = STOP
-            if right_turn:
-                self.left_wheel.forward(self.TURN_FORWARD_SPEED)
-                self.right_wheel.backward(self.TURN_BACKWARD_SPEED)
-            else:
-                self.left_wheel.backward(self.TURN_BACKWARD_SPEED)
-                self.right_wheel.forward(self.TURN_FORWARD_SPEED)
-            self.states[self.TURN_DIRECTION] = True
-        else:
-            self.distance_state = ACCELERATING
-            self.right_wheel.forward(self.CONTAIN_SPEED)
-            self.left_wheel.forward(self.CONTAIN_SPEED)
-            self.current_speed = self.CONTAIN_SPEED
-            self.states[FORWARD] = True
+        turning_count = -1
 
         while self.keeping_distance:
             sleep(0.05)
-            if self.distance_state == ACCELERATING and self.distance < self.MAX_DISTANCE:
+            if self.distance < self.MAX_DISTANCE:
                 self.right_wheel.stop()
                 self.left_wheel.stop()
+                self.servo.forward()
                 self.current_speed = 0
-                self.distance_state = STOP
                 self.states[FORWARD] = False
+                self.states[BACKWARD] = True
+                self.current_speed = 0
 
                 sleep(0.5)
 
-                if right_turn:
-                    self.left_wheel.forward(self.TURN_FORWARD_SPEED)
-                    self.right_wheel.backward(self.TURN_BACKWARD_SPEED)
-                else:
-                    self.left_wheel.backward(self.TURN_BACKWARD_SPEED)
-                    self.right_wheel.forward(self.TURN_FORWARD_SPEED)
-                self.states[self.TURN_DIRECTION] = True
-
-            elif self.distance_state == STOP and self.distance > self.MAX_DISTANCE:
-                self.right_wheel.stop()
-                self.left_wheel.stop()
-                self.states[self.TURN_DIRECTION] = False
-
-                sleep(0.5)
-
-                self.distance_state = ACCELERATING
-                self.right_wheel.forward(self.CONTAIN_SPEED)
-                self.left_wheel.forward(self.CONTAIN_SPEED)
-                self.current_speed = self.CONTAIN_SPEED
+                self.states[BACKWARD] = False
+                self.states[REVERSE] = True
                 self.states[FORWARD] = True
+                self.left_wheel.backward(self.AUTO_SPEED)
+                self.right_wheel.backward(self.AUTO_SPEED)
+                self.current_speed = self.AUTO_SPEED
 
-        self.states[FORWARD] = False
-        self.states[self.TURN_DIRECTION] = False
+                sleep(1.5)
+
+                self.states[BACKWARD] = True
+                self.states[FORWARD] = False
+                self.states[REVERSE] = False
+                self.left_wheel.stop()
+                self.right_wheel.stop()
+                self.current_speed = 0
+
+                sleep(0.5)
+
+                self.states[RIGHT] = True
+                self.states[FORWARD] = True
+                self.states[BACKWARD] = False
+                self.servo.right()
+                self.left_wheel.forward(self.AUTO_SPEED)
+                self.right_wheel.forward(self.AUTO_SPEED)
+                self.current_speed = self.AUTO_SPEED
+                turning_count = 1
+            elif turning_count > 30:
+                turning_count = -1
+                self.states[RIGHT] = False
+                self.servo.forward()
+            elif turning_count > 0:
+                turning_count += 1
+
+        for state in [FORWARD, BACKWARD, RIGHT, LEFT, REVERSE]:
+            self.states[state] = False
+
         self.state = STOP
         self.left_wheel.stop()
         self.right_wheel.stop()
+        self.servo.forward()
         self.current_speed = 0
 
     def __follow_line(self) -> None:
@@ -190,9 +193,9 @@ class Motor:
             sleep(2.5)
         else:
             self.contain_state = ACCELERATING
-            self.right_wheel.forward(self.CONTAIN_SPEED)
-            self.left_wheel.forward(self.CONTAIN_SPEED)
-            self.current_speed = self.CONTAIN_SPEED
+            self.right_wheel.forward(self.AUTO_SPEED)
+            self.left_wheel.forward(self.AUTO_SPEED)
+            self.current_speed = self.AUTO_SPEED
             self.states[FORWARD] = True
 
         while self.keep_contained:
@@ -224,9 +227,9 @@ class Motor:
                 sleep(0.5)
 
                 self.contain_state = ACCELERATING
-                self.right_wheel.forward(self.CONTAIN_SPEED)
-                self.left_wheel.forward(self.CONTAIN_SPEED)
-                self.current_speed = self.CONTAIN_SPEED
+                self.right_wheel.forward(self.AUTO_SPEED)
+                self.left_wheel.forward(self.AUTO_SPEED)
+                self.current_speed = self.AUTO_SPEED
                 self.states[FORWARD] = True
 
         self.states[FORWARD] = False
