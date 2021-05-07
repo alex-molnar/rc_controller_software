@@ -1,5 +1,5 @@
 <?php
-include("passwd.php");
+include("get_connection.php");
 
 $id = $_POST["id"];
 $name = $_POST["name"];
@@ -19,7 +19,7 @@ $params = [
     "time_stamp" => date("Y-m-d H:i:s")
 ];
 
-$pdo = new PDO("mysql:host=mysql.caesar.elte.hu;dbname=kingbrady", "kingbrady", get_password());
+$pdo = get_connection();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->prepare($sql)->execute($params);
 

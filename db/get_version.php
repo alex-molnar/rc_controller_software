@@ -1,9 +1,9 @@
 <?php
-include("passwd.php");
+include("get_connection.php");
 
 $sql = "SELECT version FROM version";
 
-$pdo = new PDO("mysql:host=mysql.caesar.elte.hu;dbname=kingbrady", "kingbrady", get_password());
+$pdo = get_connection();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $stmt = $pdo->prepare($sql);

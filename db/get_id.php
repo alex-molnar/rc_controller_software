@@ -1,12 +1,12 @@
 <?php
-include("passwd.php");
+include("get_connection.php");
 
 $unique_auth_key = $_GET["key"];
 
 $sql = "SELECT id FROM rc_connection WHERE unique_auth_key=:key";
 $params = ["key" => $unique_auth_key];
 
-$pdo = new PDO("mysql:host=mysql.caesar.elte.hu;dbname=kingbrady", "kingbrady", get_password());
+$pdo = get_connection();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $stmt = $pdo->prepare($sql);

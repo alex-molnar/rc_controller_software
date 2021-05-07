@@ -1,5 +1,5 @@
 <?php
-include("passwd.php");
+include("get_connection.php");
 
 function is_available($var)
 {
@@ -8,7 +8,7 @@ function is_available($var)
 
 $sql = "SELECT INET_NTOA(`ip`) ip, port, ssid, available, time_stamp FROM rc_connection";
 
-$pdo = new PDO("mysql:host=mysql.caesar.elte.hu;dbname=kingbrady", "kingbrady", get_password());
+$pdo = get_connection();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 $stmt = $pdo->prepare($sql);
