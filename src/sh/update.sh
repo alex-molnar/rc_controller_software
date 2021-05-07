@@ -24,8 +24,7 @@ teardown_gpio() {
 }
 
 TRY_ROOT="Try to run the script with root permissions!"
-DOWNLOAD_FILE=rc_car_curled.tar.gz
-DOWNLOAD_FILE_PACKAGES=raspberrypi_rc_car_packages.tar.gz
+DOWNLOAD_FILE=raspberrypi_rc_car.tar.gz
 latest_version=$(curl --silent -X GET "https://kingbrady.web.elte.hu/rc_car/get_version.php")
 installed_version=$(cat < /opt/raspberrypi_rc_car/VERSION.txt)
 
@@ -35,7 +34,7 @@ if [ "$latest_version" == "$installed_version" ]; then
 else
   cd /home/pi || exit_notify "Changing directory failed. $TRY_ROOT"
   sudo mv /opt/raspberrypi_rc_car/config.json config.json
-  printf "Old version found: %s\nLatest version: %s\nUpdating now [          ]\n" "$installed_version" "$latest_version"
+  printf "Old version found: %s\nLatest version: %s\n Killing Running processes.." "$installed_version" "$latest_version"
 
   setup_gpio "16"
   while read -r p; do
@@ -44,25 +43,36 @@ else
       sudo kill -SIGKILL "${stats[0]}"
     fi
   done < <(sudo ps a)
-  printf '\e[1A\e[KUpdating now [#         ]\n'
+  printf 'Done.\nUpdating packages [          ]\n'
 
-  curl https://kingbrady.web.elte.hu/raspberrypi_rc_car.tar.gz --silent --output $DOWNLOAD_FILE
-  printf '\e[1A\e[KUpdating now [###       ]\n'
-  curl "https://kingbrady.web.elte.hu/raspberrypi_rc_car_packages-$latest_version.tar.gz" --silent --output $DOWNLOAD_FILE_PACKAGES
-  printf '\e[1A\e[KUpdating now [#####     ]\n'
+  curl "https://kingbrady.web.elte.hu/raspberrypi_rc_car-$latest_version.tar.gz" --silent --output $DOWNLOAD_FILE
+  printf '\e[1A\e[KUpdating packages [###       ]\n'
 
   sudo rm -rf /opt/raspberrypi_rc_car >/dev/null 2>&1 || exit_notify "FAIL.\nRemoving old files failed. $TRY_ROOT"
-  printf '\e[1A\e[KUpdating now [######    ]\n'
   sudo tar xzf $DOWNLOAD_FILE -C /opt >/dev/null 2>&1 || exit_notify "FAIL.\nExtracting files failed. $TRY_ROOT"
-  printf '\e[1A\e[KUpdating now [########  ]\n'
-  sudo python3 -m pip install $DOWNLOAD_FILE_PACKAGES  >/dev/null 2>&1
-  printf '\e[1A\e[KUpdating now [##########] Done.\nClearing up..'
+  printf '\e[1A\e[KUpdating packages [######    ]\n'
 
+  mv "/opt/raspberrypi_rc_car-$latest_version" /opt/raspberrypi_rc_car
   rm -f $DOWNLOAD_FILE
-  rm -f $DOWNLOAD_FILE_PACKAGES
   sudo mv config.json /opt/raspberrypi_rc_car/config.json
-  printf "%s" "$latest_version" > /opt/raspberrypi_rc_car/VERSION.txt
-  printf "Done.\nTurning off now..\n"
+  cd /opt/raspberrypi_rc_car || exit_notify "Changing directory failed $TRY_ROOT"
+  sudo chmod +x sh/update.sh
+  sudo sed -i 's/\r$//' sh/update.sh
+  printf "%s" "$latest_version" > VERSION.txt
+  printf '\e[1A\e[KUpdating packages [##########] Done.\nUpdating python packages [          ]\n'
+
+  python3 -m venv venv
+  printf '\e[1A\e[KUpdating python packages [##        ]\n'
+
+  venv/bin/pip install --upgrade pip >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+  printf '\e[1A\e[KUpdating python packages [#####     ]\n'
+
+  venv/bin/pip install -r requirements.txt >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+  printf '\e[1A\e[KUpdating python packages [########  ]\n'
+
+  venv/bin/pip install "rc_packages-$latest_version.tar.gz" >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+  printf "\e[1A\e[KUpdating python packages [##########] Done.\nTurning off now..\n"
+
   teardown_gpio "16"
   sudo poweroff
 fi
