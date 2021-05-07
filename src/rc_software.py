@@ -232,6 +232,9 @@ class RcCar:
                 self.logger.debug('Closing connections')
                 if self.message_socket is not None:
                     self.message_socket.close()
+                    sleep(0.1)
+                self.controller.set_values({})
+                self.status_led.color = self.color
 
         self.finish()
 
