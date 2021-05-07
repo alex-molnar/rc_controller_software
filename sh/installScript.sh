@@ -12,7 +12,7 @@ exit_notify() {
 }
 
 log() {
-  ! $silent && printf "%b" "$1"
+  ! $silent && printf '%b' "$1"
 }
 
 DOWNLOAD_FILE=raspberrypi_rc_car.tar.gz
@@ -48,16 +48,19 @@ printf "%s" "$version" > VERSION.txt
 
 # SETTING UP CRONTAB
 log "Setting up cronjob.."
-sudo echo "@reboot sudo /opt/raspberrypi_rc_car/bin/python /opt/raspberrypi_rc_car/rc_software.py" | sudo crontab - >/dev/null 2>&1 || exit_notify "Setting up the cronjob failed. $TRY_ROOT"
+sudo echo "@reboot sudo /opt/raspberrypi_rc_car/venv/bin/python /opt/raspberrypi_rc_car/rc_software.py" | sudo crontab - >/dev/null 2>&1 || exit_notify "Setting up the cronjob failed. $TRY_ROOT"
 log "Done.\n"
 
 # INSTALLING PYTHON PACKAGES
-log "Installing necessary python packages.."
+log "Installing necessary python packages [          ]\n"
 python3 -m venv venv
+log '\e[1A\e[KInstalling necessary python packages [##        ]\n'
 venv/bin/pip install --upgrade pip >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+log '\e[1A\e[KInstalling necessary python packages [#####     ]\n'
 venv/bin/pip install -r requirements.txt >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
+log '\e[1A\e[KInstalling necessary python packages [#######   ]\n'
 venv/bin/pip install "rc_packages-$version.tar.gz" >/dev/null 2>&1 || exit_notify "Installing python packages failed. $TRY_ROOT"
-log "Done.\n"
+log '\e[1A\e[KInstalling necessary python packages [##########] Done.\n'
 
 # SETTING UP BLUETOOTH
 log "Setting up bluetooth.."

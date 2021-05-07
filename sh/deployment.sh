@@ -57,7 +57,7 @@ venv/bin/pip freeze | grep -v "pkg-resources" > requirements.txt
 # to the output of freeze, which then causes the installation to fail.
 cp "requirements.txt" "raspberrypi_rc_car-$version/requirements.txt"
 
-printf "Done.\nCreating packages [#         ]\n"
+printf "Done.\nCreating packages.."
 
 old_path=$( (echo "$PATH_TO_ROOT_DIR/src"|sed -r 's/([\$\.\*\/\[\\^])/\\\1/g'|sed 's/[]]/\[]]/g')>&1)
 new_path=$( (echo '/opt/raspberrypi_rc_car'|sed -r 's/([\$\.\*\/\[\\^])/\\\1/g'|sed 's/[]]/\[]]/g')>&1)
@@ -70,8 +70,6 @@ sed -i 's/\r$//' src/sh/update.sh
 
 venv/bin/python3 -m build >/dev/null 2>&1
 
-printf "\e[1A\e[KCreating packages [#####     ]\n"
-
 cd dist || exit_notify "Changing directory failed"
 tar xzf "rc_packages-$version.tar.gz"
 echo -n "$version" > "rc_packages-$version/VERSION.txt"
@@ -81,13 +79,9 @@ mv "dist/rc_packages-$version.tar.gz" "raspberrypi_rc_car-$version/rc_packages-$
 
 tar czf "raspberrypi_rc_car-$version.tar.gz" "raspberrypi_rc_car-$version" >/dev/null 2>&1 || exit_notify "Compressing directory failed"
 
-printf "\e[1A\e[KCreating packages [##########] Done.\n"
-
-printf "Uploading files to server [#         ]\n"
+printf "Done.\nUploading files to server [#         ]\n"
 
 sh/upload.sh "$password" "raspberrypi_rc_car-$version.tar.gz" >/dev/null 2>&1 || exit_notify "Uploading files failed"
-#printf '\e[1A\e[KUploading files to server [###       ]\n'
-#sh/upload.sh "$password" raspberrypi_rc_car.tar.gz >/dev/null 2>&1 || exit_notify "Uploading files failed"
 printf '\e[1A\e[KUploading files to server [#####     ]\n'
 sh/upload.sh "$password" sh/installScript.sh >/dev/null 2>&1 || exit_notify "Uploading files failed"
 printf '\e[1A\e[KUploading files to server [########  ]\n'
