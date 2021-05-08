@@ -46,4 +46,3 @@ class DistanceSensor:
             self.logger.warning('No echo received from distance sensor')
             return self._distance
         return speed_of_sound * (measure_stop - measure_start) / 2
-
