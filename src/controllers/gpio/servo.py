@@ -25,7 +25,7 @@ class Servo:
 
     @property
     def angle(self) -> float:
-        return (self._angle - self._min_duty) * self._scale_number - 90
+        return (self._angle - self._min_duty) * self._scale_number - 95  # 95 because the inaccuracy of hardware
 
     @angle.setter
     def angle(self, value: int) -> None:
