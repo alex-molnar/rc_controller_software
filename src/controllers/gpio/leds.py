@@ -109,6 +109,6 @@ class StatusLED:
         assert len(value) == 3
         assert 0 <= value[0] <= 255
         assert 0 <= value[1] <= 255
-        self._color = value
+        self._color = (value[0], value[1], 255)
         self.red_leg.value = value[0] / 255
         self.green_leg.value = value[1] / 255
