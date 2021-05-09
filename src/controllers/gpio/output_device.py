@@ -14,7 +14,10 @@ class GeneralPurposeOutputDevice:
         self._is_active_background = False
 
     def __del__(self):
-        self._device.stop()
+        try:
+            self._device.stop()
+        except AttributeError:
+            pass
 
     @property
     def is_active(self) -> bool:

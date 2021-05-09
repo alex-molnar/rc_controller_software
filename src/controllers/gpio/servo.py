@@ -22,7 +22,10 @@ class Servo:
         sleep(0.5)
 
     def __del__(self):
-        self._servo.stop()
+        try:
+            self._servo.stop()
+        except AttributeError:
+            pass
 
     @property
     def angle(self) -> float:
