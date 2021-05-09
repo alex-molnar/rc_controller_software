@@ -24,3 +24,23 @@ class GeneralPurposeOutputDeviceMock:
     @value.setter
     def value(self, val):
         self._value = val
+
+
+class SocketMock:
+    def __init__(self, _=None, __=None):
+        self.super_called = True
+
+    def bind(self, _):
+        pass
+
+    def listen(self, _=None):
+        pass
+
+    def settimeout(self, _):
+        pass
+
+    def close(self):
+        pass
+
+    def recv(self, _):
+        return b'password'
