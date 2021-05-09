@@ -15,3 +15,12 @@ class GeneralPurposeOutputDeviceMock:
         self.on = MagicMock()
         self.off = MagicMock()
         self.super_called = True
+        self._value = MagicMock()
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, val):
+        self._value = val
