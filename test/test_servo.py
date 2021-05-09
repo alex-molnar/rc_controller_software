@@ -30,16 +30,40 @@ class TestServo(TestCase):
         self.servo._servo.ChangeDutyCycle.assert_called()
         self.servo._servo.start.assert_called_with(0)
 
-    def test_angle_set_correctly(self, _):
-        self.setup()
-        self.servo.angle = self.ANGLE
-        self.assertEqual(self.ANGLE, self.servo.angle)
-
     def test_initials(self, _):
         self.setup(self.ANGLE, 5, 15)
         self.assertEqual(self.ANGLE, self.servo.angle)
         self.assertEqual(5, self.servo.min_duty)
         self.assertEqual(15, self.servo.max_duty)
+
+    def test_setup_sanity_checks(self, _):
+        self.assertRaises(AssertionError, self.setup, -100, self.MIN_DUTY, self.MAX_DUTY)
+        self.assertRaises(AssertionError, self.setup, 100, self.MIN_DUTY, self.MAX_DUTY)
+        self.assertRaises(AssertionError, self.setup, self.ANGLE, -1, 50)
+        self.assertRaises(AssertionError, self.setup, self.ANGLE, 0, 110)
+        self.assertRaises(AssertionError, self.setup, self.ANGLE, 50, 25)
+
+    def test_min_duty_sanity_checks(self, _):
+        self.setup()
+        self.assertRaises(AssertionError, setattr, self.servo, 'min_duty', -1)
+        self.assertRaises(AssertionError, setattr, self.servo, 'min_duty', 150)
+        self.assertRaises(AssertionError, setattr, self.servo, 'min_duty', self.MAX_DUTY + 1)
+
+    def test_max_duty_sanity_checks(self, _):
+        self.setup()
+        self.assertRaises(AssertionError, setattr, self.servo, 'max_duty', -1)
+        self.assertRaises(AssertionError, setattr, self.servo, 'max_duty', 150)
+        self.assertRaises(AssertionError, setattr, self.servo, 'max_duty', self.MIN_DUTY - 1)
+
+    def test_angle_sanity_checks(self, _):
+        self.setup()
+        self.assertRaises(AssertionError, setattr, self.servo, 'angle', -100)
+        self.assertRaises(AssertionError, setattr, self.servo, 'angle', 100)
+
+    def test_angle_set_correctly(self, _):
+        self.setup()
+        self.servo.angle = self.ANGLE
+        self.assertEqual(self.ANGLE, self.servo.angle)
 
     def test_min(self, _):
         self.setup()
