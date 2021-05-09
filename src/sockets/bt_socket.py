@@ -38,6 +38,9 @@ class BTSocket(SocketBase):
                 service_classes=[UUID, SERIAL_PORT_CLASS],
                 profiles=[SERIAL_PORT_PROFILE]
             )
+
+            self.logger.info('Bluetooth connection has been set up successfully')
+            self.is_active = True
         except BluetoothError as bt_err:
             self.is_active = False
             self.logger.warning('Bluetooth exception happened during setup')
@@ -45,9 +48,6 @@ class BTSocket(SocketBase):
         except Exception as e:
             self.is_active = False
             self.logger.warning(f'Some other exception happened during bluetooth setup: {e}')
-
-        self.logger.info('Bluetooth connection has been set up successfully')
-        self.is_active = True
 
     def accept_connection(self, message_queue: Queue) -> None:
         self.is_connection_alive = False
