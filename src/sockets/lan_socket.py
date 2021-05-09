@@ -14,7 +14,7 @@ NETWORK_TIMEOUT_TOLERANCE = 1
 
 class LANSocket(SocketBase):
     def __init__(self, db_id: int = None, sock: socket = None):
-        super(SocketBase, self).__init__()
+        super().__init__()
         self.name = 'LAN'
         self.db_id = db_id
         self.sock = sock
