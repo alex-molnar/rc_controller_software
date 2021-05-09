@@ -65,7 +65,6 @@ sed -i -e "s/$old_path/$new_path/g" "$PATH_TO_ROOT_DIR/raspberrypi_rc_car-$versi
 sed -i -e "s/$old_path/$new_path/g" "$PATH_TO_ROOT_DIR/src/sockets/bt_socket.py" || exit_notify "Editing path to config file failed."
 sed -i -e "s/VERSION=0/VERSION='$version'/g" sh/installScript.sh
 sed -i 's/\r$//' sh/installScript.sh
-sed -i 's/\r$//' sh/chpasswd.sh
 sed -i 's/\r$//' src/sh/update.sh
 
 venv/bin/python3 -m build >/dev/null 2>&1
@@ -84,8 +83,6 @@ printf "Done.\nUploading files to server [#         ]\n"
 sh/upload.sh "$password" "raspberrypi_rc_car-$version.tar.gz" >/dev/null 2>&1 || exit_notify "Uploading files failed"
 printf '\e[1A\e[KUploading files to server [#####     ]\n'
 sh/upload.sh "$password" sh/installScript.sh >/dev/null 2>&1 || exit_notify "Uploading files failed"
-printf '\e[1A\e[KUploading files to server [########  ]\n'
-sh/upload.sh "$password" sh/chpasswd.sh >/dev/null 2>&1 || exit_notify "Uploading files failed"
 printf '\e[1AUploading files to server [##########] Done.\nCleaning up..'
 
 rm -rf "raspberrypi_rc_car-$version"
