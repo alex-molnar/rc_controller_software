@@ -24,22 +24,22 @@ password=$(cat < passwd)
 version_types=(${old_version//./ })
 major=${version_types[0]}
 minor=${version_types[1]}
-continuous=${version_types[2]}
+micro=${version_types[2]}
 
 case "$1" in
   "-ma" | "--major")
     major=$(($major + 1))
     minor=0
-    continuous=0
+    micro=0
     ;;
   "-mi" | "--minor")
     minor=$(($minor + 1))
-    continuous=0
+    micro=0
     ;;
-  *) continuous=$(($continuous + 1));;
+  *) micro=$(($micro + 1));;
 esac
 
-version="$major.$minor.$continuous"
+version="$major.$minor.$micro"
 printf "%s" "$version"  > VERSION.txt
 curl --silent -X POST -F "version=$version" https://kingbrady.web.elte.hu/rc_car/set_version.php
 
