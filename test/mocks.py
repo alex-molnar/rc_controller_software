@@ -8,3 +8,10 @@ class PWMMock:
 
     def stop(self):
         pass
+
+
+class GeneralPurposeOutputDeviceMock:
+    def __init__(self, _=None, __=None, ___=None):
+        self.on = MagicMock()
+        self.off = MagicMock()
+        self.super_called = True

@@ -2,7 +2,7 @@ from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
 import controllers.gpio.servo
-from pwm_mock import PWMMock
+from mocks import PWMMock
 
 
 controllers.gpio.servo.gpio_setup = MagicMock()
