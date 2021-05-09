@@ -15,7 +15,7 @@ BT_NAME = 'RC_car_raspberrypi'
 
 class BTSocket(SocketBase):
     def __init__(self, sock: BluetoothSocket = None):
-        super(BTSocket, self).__init__()
+        super().__init__()
         self.name = 'Bluetooth'
         self.sock = sock
         self.message_socket: BluetoothSocket
