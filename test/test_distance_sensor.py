@@ -1,7 +1,6 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
 import controllers.gpio.distance_sensor
-from random import randint
 
 
 controllers.gpio.distance_sensor.setup = MagicMock()
@@ -15,7 +14,6 @@ class TestDistanceSensor(TestCase):
     TRIGGER = 2
 
     def setUp(self) -> None:
-        self.val = 0
         self.distance_sensor = controllers.gpio.distance_sensor.DistanceSensor(echo=self.ECHO, trigger=self.TRIGGER)
         self.distance_sensor.logger.warning = MagicMock()
 
@@ -34,7 +32,11 @@ class TestDistanceSensor(TestCase):
         self.distance_sensor.logger.warning.assert_called()
 
     def test_normal_value(self):
-        controllers.gpio.distance_sensor.gpio_input = MagicMock(side_effect=lambda _: randint(0, 1))
-        self.assertTrue(0 < self.distance_sensor.distance)
-        self.assertTrue(200 > self.distance_sensor.distance)
+        controllers.gpio.distance_sensor.gpio_input = MagicMock(side_effect=[0, 1, 1, 0])
+        self.assertTrue(0 < self.distance_sensor.distance < 200)
+        self.distance_sensor.logger.warning.assert_not_called()
+        controllers.gpio.distance_sensor.gpio_input = MagicMock(side_effect=[
+            0 if i < 100 or i > 200 else 1 for i in range(300)
+        ])
+        self.assertTrue(0 < self.distance_sensor.distance < 200)
         self.distance_sensor.logger.warning.assert_not_called()
