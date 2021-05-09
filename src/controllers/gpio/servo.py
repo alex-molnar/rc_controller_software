@@ -9,7 +9,8 @@ class Servo:
     """
 
     def __init__(self, pin: int, initial_angle: int = 0, min_duty: int = 2, max_duty: int = 12):
-        assert min_duty < max_duty
+        assert 0 <= min_duty < max_duty <= 100
+        assert -95 <= initial_angle <= 85
         gpio_setup(pin, OUT)
         self._min_duty = min_duty
         self._max_duty = max_duty
@@ -29,7 +30,7 @@ class Servo:
 
     @angle.setter
     def angle(self, value: int) -> None:
-        assert -90 <= value <= 90
+        assert -95 <= value <= 85
         self._angle = (value + 95) / self._scale_number + self._min_duty  # 95 because the inaccuracy of hardware
         self._servo.ChangeDutyCycle(self._angle)
 
