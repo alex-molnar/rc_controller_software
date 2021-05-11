@@ -21,7 +21,7 @@ from sockets.socket_base import SocketBase
 from sockets.lan_socket import LANSocket
 from sockets.bt_socket import BTSocket
 
-from controller import Controller
+from controllers.controller import Controller
 from controllers.gpio.leds import StatusLED
 
 

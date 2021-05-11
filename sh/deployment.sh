@@ -3,7 +3,6 @@
 PATH_TO_ROOT_DIR=/home/alex/rc_controller_software
 
 files=(
-  "controller.py"
   "rc_software.py"
   "sh/bt_disc_on.sh"
   "sh/update.sh"
