@@ -8,7 +8,7 @@ class Servo:
     Class to controll the servo motor
     """
 
-    def __init__(self, pin: int, initial_angle: int = 0, min_duty: int = 2, max_duty: int = 12):
+    def __init__(self, pin: int, initial_angle: int = 0, min_duty: int = 2.5, max_duty: int = 12.5):
         assert 0 <= min_duty < max_duty <= 100
         assert -95 <= initial_angle <= 85
         gpio_setup(pin, OUT)

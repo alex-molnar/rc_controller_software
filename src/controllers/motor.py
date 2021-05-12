@@ -174,7 +174,7 @@ class Motor:
     def __handle_speed(self, data: Dict[str, bool]) -> None:
         self.states[REVERSE] = data[REVERSE]
 
-        if self.state == STOP or (self.state in [DISTANCE_KEEPING, KEEP_CONTAINED] and data[FORWARD]):
+        if self.state == STOP:
             if data[BACKWARD]:
                 self.states[BACKWARD] = True
             elif data[FORWARD]:
@@ -184,7 +184,7 @@ class Motor:
                 Thread(target=self.__acc).start()
             else:
                 self.states[BACKWARD] = False
-        elif self.state in [ACCELERATING, DISTANCE_KEEPING, KEEP_CONTAINED]:
+        elif self.state == ACCELERATING:
             if data[BACKWARD]:
                 self.states[FORWARD] = False
                 self.states[BACKWARD] = True
