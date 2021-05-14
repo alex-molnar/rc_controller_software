@@ -27,6 +27,12 @@ class GeneralPurposeOutputDeviceMock:
         self._value = val
 
 
+class LEDMock(GeneralPurposeOutputDeviceMock):
+    def __init__(self, _=None, __=None, ___=None):
+        super().__init__()
+        self.blink = MagicMock()
+
+
 class SocketMock:
     def __init__(self, _=None, __=None):
         self.super_called = True
