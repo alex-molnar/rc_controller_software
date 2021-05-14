@@ -50,12 +50,16 @@ class Lights:
             self.public_states[LIGHTS] = data[LIGHTS]
 
         if self.indicator_state != HAZARD_ON and data[HAZARD_WARNING]:
+            self.indicator_state = HAZARD_ON
             self.turn_hazard_warning_on()
         elif self.indicator_state not in [HAZARD_ON, RIGHT_ON] and data[R_INDICATOR]:
+            self.indicator_state = RIGHT_ON
             self.turn_right_indicator_on()
         elif self.indicator_state not in [HAZARD_ON, LEFT_ON] and data[L_INDICATOR]:
+            self.indicator_state = LEFT_ON
             self.turn_left_indicator_on()
         elif not any([data[index] for index in [HAZARD_WARNING, R_INDICATOR, L_INDICATOR]]) or (self.indicator_state == HAZARD_ON and not data[HAZARD_WARNING]):
+            self.indicator_state = INDICATORS_OFF
             self.turn_indicators_off()
 
         if self.breaking != data[BACKWARD]:
@@ -68,7 +72,6 @@ class Lights:
 
     def turn_right_indicator_on(self) -> None:
         self.logger.debug('Right indicator turned on')
-        self.indicator_state = RIGHT_ON
         self.public_states[HAZARD_WARNING] = False
         self.public_states[R_INDICATOR] = True
         self.public_states[L_INDICATOR] = False
@@ -77,7 +80,6 @@ class Lights:
 
     def turn_left_indicator_on(self) -> None:
         self.logger.debug('Left indicator turned on')
-        self.indicator_state = LEFT_ON
         self.public_states[HAZARD_WARNING] = False
         self.public_states[R_INDICATOR] = False
         self.public_states[L_INDICATOR] = True
@@ -86,7 +88,6 @@ class Lights:
 
     def turn_hazard_warning_on(self) -> None:
         self.logger.debug('Hazard warning turned on')
-        self.indicator_state = HAZARD_ON
         self.public_states[HAZARD_WARNING] = True
         self.public_states[L_INDICATOR] = True
         self.public_states[R_INDICATOR] = True
@@ -97,7 +98,6 @@ class Lights:
 
     def turn_indicators_off(self) -> None:
         self.logger.debug('Hazard warning turned on')
-        self.indicator_state = INDICATORS_OFF
         self.public_states[HAZARD_WARNING] = False
         self.public_states[R_INDICATOR] = False
         self.public_states[L_INDICATOR] = False

@@ -82,13 +82,13 @@ class Motor:
 
     def handle_motor_control(self, data: Dict[str, bool]) -> None:
         if data[DISTANCE_KEEPING]:
-            if self.state == STOP:
+            if self.state in [STOP, KEEP_CONTAINED]:
                 self.logger.debug('Object avoidance started')
                 self.state = DISTANCE_KEEPING
                 self.states[DISTANCE_KEEPING] = True
                 Thread(target=self.auto_functionality, args=(DISTANCE_KEEPING,)).start()
         elif data[KEEP_CONTAINED]:
-            if self.state == STOP:
+            if self.state in [STOP, DISTANCE_KEEPING]:
                 self.logger.debug('Stop on line started')
                 self.state = KEEP_CONTAINED
                 self.states[KEEP_CONTAINED] = True
@@ -181,6 +181,7 @@ class Motor:
                 self.states[FORWARD] = True
                 self.states[BACKWARD] = False
                 self.can_accelerate = True
+                self.state = ACCELERATING
                 Thread(target=self.__acc).start()
             else:
                 self.states[BACKWARD] = False
@@ -189,21 +190,25 @@ class Motor:
                 self.states[FORWARD] = False
                 self.states[BACKWARD] = True
                 self.can_accelerate = False
+                self.state = STOP
                 self.__stop()
             elif not data[FORWARD]:
                 self.states[FORWARD] = False
                 self.can_accelerate = False
                 self.can_break = True
+                self.state = BREAKING
                 Thread(target=self.__break).start()
         elif self.state == BREAKING:
             if data[BACKWARD]:
                 self.states[BACKWARD] = True
                 self.can_break = False
+                self.state = STOP
                 self.__stop()
             elif data[FORWARD]:
                 self.states[FORWARD] = True
                 self.can_break = False
                 self.can_accelerate = True
+                self.state = ACCELERATING
                 Thread(target=self.__acc).start()
 
     def __handle_directions(self, data: Dict[str, bool]) -> None:
@@ -213,18 +218,16 @@ class Motor:
             self.states[RIGHT] = False
             self.states[LEFT] = False
 
-        if data[RIGHT]:
-            self.servo.right()
-            self.direction = RIGHT
-            self.states[RIGHT] = True
-        elif data[LEFT]:
+        if data[LEFT]:
             self.servo.left()
             self.direction = LEFT
             self.states[LEFT] = True
+        elif data[RIGHT]:
+            self.servo.right()
+            self.direction = RIGHT
+            self.states[RIGHT] = True
 
     def __acc(self) -> None:
-        self.state = ACCELERATING
-
         if self.current_speed < 0.2:
             self.current_speed = 0.2
 
@@ -239,8 +242,6 @@ class Motor:
             self.current_speed += 0.05
 
     def __break(self) -> None:
-        self.state = BREAKING
-
         while self.can_break and self.current_speed > 0.2:
             self.current_speed -= 0.05
             if not self.states[REVERSE]:
@@ -258,7 +259,6 @@ class Motor:
             self.state = STOP
 
     def __stop(self) -> None:
-        self.state = STOP
         self.direction = FORWARD
         self.left_wheel.stop()
         self.right_wheel.stop()
