@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from queue import Empty
 
 
 class PWMMock:
@@ -44,3 +45,20 @@ class SocketMock:
 
     def recv(self, _):
         return b'password'
+
+
+class MotorMock:
+    def __init__(self, _=None, __=None):
+        self.initialized = True
+        self.left = MagicMock()
+        self.right = MagicMock()
+        self.forward = MagicMock()
+        self.backward = MagicMock()
+        self.stop = MagicMock()
+
+
+class QueueMock:
+    def __init__(self):
+        self.initialized = True
+        self.put = MagicMock()
+        self.get_nowait = MagicMock(side_effect=Empty)
